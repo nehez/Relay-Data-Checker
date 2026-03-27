@@ -4,6 +4,17 @@ let newData = null;      // raw rows from new file (all columns kept)
 let newHeaders = null;
 let validationResults = null;
 
+// ─── Helpers ──────────────────────────────────────────────────────
+function formatCellValue(val) {
+  if (val instanceof Date) {
+    const mm = String(val.getMonth() + 1).padStart(2, '0');
+    const dd = String(val.getDate()).padStart(2, '0');
+    const yyyy = val.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  }
+  return val;
+}
+
 // ─── File Loading ─────────────────────────────────────────────────
 function readFileAsArrayBuffer(file) {
   return new Promise((res, rej) => {
@@ -120,7 +131,7 @@ async function loadNew(file) {
     const row = rawRows[i];
     if (row.every(c => c === '' || c === null || c === undefined)) continue;
     const obj = {};
-    headers.forEach((h, idx) => { obj[h] = row[idx] ?? ''; });
+    headers.forEach((h, idx) => { obj[h] = formatCellValue(row[idx] ?? ''); });
     rows.push(obj);
   }
 
