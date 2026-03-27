@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Windermere Circuit Validator</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-label">Circuit Validation Tool</div>
+  <h1>Windermere Validator</h1>
+  <p class="subtitle">Compare new test results against master circuit reference — flags mismatched or missing circuit/serial pairs</p>
+</div>
+
+<div class="main">
+
+  <div class="upload-grid">
+    <div class="upload-zone" id="zone-master">
+      <input type="file" id="file-master" accept=".xlsx,.xls,.csv">
+      <div class="zone-tag">Step 1</div>
+      <div class="zone-title">Master / Compare File</div>
+      <div class="zone-desc">Excel or CSV. Needs CIRCUIT NAME + SERIAL NUMBER columns (two-row header ok).</div>
+      <div class="zone-status" id="status-master">No file loaded</div>
+    </div>
+
+    <div class="upload-zone" id="zone-new">
+      <input type="file" id="file-new" accept=".xlsx,.xls,.csv">
+      <div class="zone-tag">Step 2</div>
+      <div class="zone-title">New Results File</div>
+      <div class="zone-desc">Excel or CSV. Needs Nomenclature + Serial Number columns.</div>
+      <div class="zone-status" id="status-new">No file loaded</div>
+    </div>
+  </div>
+
+  <div class="error-banner" id="error-banner"></div>
+  <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+  <button class="run-btn" id="run-btn" disabled>Run Validation</button>
+
+  <div class="results-panel" id="results-panel">
+
+    <div class="stats-row" id="stats-row"></div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="exceptions">Failures</div>
+      <div class="tab" data-tab="fulldata">Full Data</div>
+      <div class="tab" data-tab="notinmaster">Not In Master</div>
+    </div>
+
+    <div class="tab-panel active" id="tab-exceptions"></div>
+    <div class="tab-panel" id="tab-fulldata"></div>
+    <div class="tab-panel" id="tab-notinmaster"></div>
+
+    <div class="download-row">
+      <button class="dl-btn primary" id="dl-excel">Download Excel Report</button>
+      <button class="dl-btn" id="dl-csv">Download Failures CSV</button>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
