@@ -471,6 +471,11 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('theme-toggle').textContent = isLight ? 'Dark Mode' : 'Light Mode';
+});
+
 document.getElementById('dl-excel').addEventListener('click', () => {
   if (validationResults) exportExcel(validationResults, masterData, newData.headers);
 });

@@ -9,6 +9,8 @@
 </head>
 <body>
 
+<button class="theme-toggle" id="theme-toggle">Light Mode</button>
+
 <div class="header">
   <div class="header-label">Relay Data Checker</div>
   <h1>Relay Data Checker</h1>
@@ -46,13 +48,13 @@
 
     <div class="tabs">
       <div class="tab active" data-tab="exceptions">Failures</div>
-      <div class="tab" data-tab="fulldata">Full Data</div>
       <div class="tab" data-tab="notinmaster">Missing From New File</div>
+      <div class="tab" data-tab="fulldata">Full Data</div>
     </div>
 
     <div class="tab-panel active" id="tab-exceptions"></div>
-    <div class="tab-panel" id="tab-fulldata"></div>
     <div class="tab-panel" id="tab-notinmaster"></div>
+    <div class="tab-panel" id="tab-fulldata"></div>
 
     <div class="download-row">
       <button class="dl-btn primary" id="dl-excel">Download Excel Report</button>
