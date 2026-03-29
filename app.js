@@ -3,6 +3,7 @@ let masterData = null;   // { circuitName, serialNumber }[]
 let newData = null;      // raw rows from new file (all columns kept)
 let newHeaders = null;
 let validationResults = null;
+let fullDataRendered = false;
 
 // ─── Helpers ──────────────────────────────────────────────────────
 function formatCellValue(val) {
@@ -329,7 +330,7 @@ function exportExcel(results, masterData, allHeaders) {
   const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
   XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
 
-  XLSX.writeFile(wb, `relay-data-checker_validation_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `relay-data-checker_validation_${new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-')}.xlsx`);
 }
 
 function exportCSV(results, allHeaders) {
@@ -346,7 +347,7 @@ function exportCSV(results, allHeaders) {
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `relay-data-checker_failures_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `relay-data-checker_failures_${new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-')}.csv`;
   a.click();
 }
 
@@ -445,11 +446,12 @@ document.getElementById('run-btn').addEventListener('click', async () => {
     setProgress(80);
     await new Promise(r => setTimeout(r, 50));
 
+    fullDataRendered = false;
     renderStats(validationResults);
 
     const fails = validationResults.filter(r => r._status === 'FAIL');
     renderTable('tab-exceptions', fails, newData.headers, true, 'Rows from the new file where the circuit name, serial number, or the combination was not found in the master. Each row shows the specific reason it failed.');
-    renderTable('tab-fulldata', validationResults, newData.headers, true, 'Every row from the new file. Green = matched the master (PASS). Red = did not match (FAIL).');
+    document.getElementById('tab-fulldata').innerHTML = '<div class="empty-state">Click the Full Data tab to load all rows.</div>';
     renderNotInMaster(masterData, validationResults);
 
     document.getElementById('results-panel').classList.add('visible');
@@ -467,7 +469,18 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
-    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    const panel = document.getElementById('tab-' + tab.dataset.tab);
+    panel.classList.add('active');
+
+    if (tab.dataset.tab === 'fulldata' && !fullDataRendered && validationResults) {
+      panel.innerHTML = '<div class="loading-state"><span class="loading-dot"></span>Rendering rows…</div>';
+      // Two rAF calls: first lets the browser paint the loading state,
+      // second runs the heavy render in the next frame after paint.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        renderTable('tab-fulldata', validationResults, newData.headers, true, 'Every row from the new file. Green = matched the master (PASS). Red = did not match (FAIL).');
+        fullDataRendered = true;
+      }));
+    }
   });
 });
 
