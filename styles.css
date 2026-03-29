@@ -219,7 +219,7 @@ h1 {
 
 /* ── Header transit car icon ───────────────────────────────────── */
 .header-icon {
-  width: 120px;
+  width: 150px;
   height: auto;
   flex-shrink: 0;
   opacity: 0.9;
