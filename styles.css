@@ -217,6 +217,14 @@ h1 {
   letter-spacing: 1px;
 }
 
+/* ── Header transit car icon ───────────────────────────────────── */
+.header-icon {
+  width: 120px;
+  height: auto;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
 /* ── Theme toggle ──────────────────────────────────────────────── */
 .theme-toggle {
   background: var(--surface2);
