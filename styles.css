@@ -1,19 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
 
 :root {
-  --bg: #0e0f13;
-  --surface: #16181f;
-  --surface2: #1e2028;
-  --border: #2a2d38;
-  --accent: #00d4aa;
-  --accent-dim: rgba(0,212,170,0.12);
-  --danger: #ff4d6a;
-  --danger-dim: rgba(255,77,106,0.12);
-  --warn: #ffb830;
-  --warn-dim: rgba(255,184,48,0.1);
-  --text: #e8eaf0;
-  --text-muted: #6b7280;
-  --text-dim: #9ca3af;
+  --bg: #0d1929;
+  --surface: #132338;
+  --surface2: #1a2f47;
+  --border: #253d5a;
+  --accent: #c8102e;
+  --accent-dim: rgba(200,16,46,0.13);
+  --success: #22c55e;
+  --success-dim: rgba(34,197,94,0.12);
+  --danger: #ef4444;
+  --danger-dim: rgba(239,68,68,0.13);
+  --warn: #f59e0b;
+  --warn-dim: rgba(245,158,11,0.1);
+  --text: #e8edf4;
+  --text-muted: #6b8299;
+  --text-dim: #9ab0c4;
   --mono: 'IBM Plex Mono', monospace;
   --sans: 'IBM Plex Sans', sans-serif;
 }
@@ -139,12 +141,12 @@ h1 {
   text-overflow: ellipsis;
 }
 
-.zone-status.ok { color: var(--accent); }
+.zone-status.ok { color: var(--success); }
 .zone-status.err { color: var(--danger); }
 
 .run-btn {
   background: var(--accent);
-  color: #0e0f13;
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   padding: 14px 32px;
@@ -159,7 +161,7 @@ h1 {
 }
 
 .run-btn:hover:not(:disabled) {
-  background: #00f0c0;
+  background: #a00d24;
   transform: translateY(-1px);
 }
 
@@ -193,7 +195,7 @@ h1 {
 }
 
 .stat-card.danger { border-color: var(--danger); background: var(--danger-dim); }
-.stat-card.success { border-color: var(--accent); background: var(--accent-dim); }
+.stat-card.success { border-color: var(--success); background: var(--success-dim); }
 .stat-card.warn { border-color: var(--warn); background: var(--warn-dim); }
 
 .stat-num {
@@ -205,7 +207,7 @@ h1 {
 }
 
 .stat-card.danger .stat-num { color: var(--danger); }
-.stat-card.success .stat-num { color: var(--accent); }
+.stat-card.success .stat-num { color: var(--success); }
 .stat-card.warn .stat-num { color: var(--warn); }
 
 .stat-label {
@@ -239,18 +241,20 @@ h1 {
 
 /* ── Light mode overrides ──────────────────────────────────────── */
 body.light {
-  --bg: #f4f5f7;
+  --bg: #f0f4f8;
   --surface: #ffffff;
-  --surface2: #e9eaed;
-  --border: #d1d5db;
-  --accent: #00a884;
-  --accent-dim: rgba(0,168,132,0.1);
+  --surface2: #e2e8f0;
+  --border: #c5d0de;
+  --accent: #c8102e;
+  --accent-dim: rgba(200,16,46,0.08);
+  --success: #16a34a;
+  --success-dim: rgba(22,163,74,0.1);
   --danger: #dc2626;
   --danger-dim: rgba(220,38,38,0.08);
   --warn: #d97706;
   --warn-dim: rgba(217,119,6,0.1);
-  --text: #111827;
-  --text-muted: #6b7280;
+  --text: #0d1929;
+  --text-muted: #5a7085;
   --text-dim: #374151;
 }
 
@@ -287,7 +291,7 @@ body.light {
 .tab.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0e0f13;
+  color: #ffffff;
 }
 
 .tab-info {
@@ -341,10 +345,10 @@ tbody tr {
 tbody tr:hover { background: var(--surface2); }
 
 tbody tr.mismatch-row { background: var(--danger-dim); }
-tbody tr.mismatch-row:hover { background: rgba(255,77,106,0.18); }
+tbody tr.mismatch-row:hover { background: rgba(239,68,68,0.2); }
 
-tbody tr.pass-row { background: var(--accent-dim); }
-tbody tr.pass-row:hover { background: rgba(0,212,170,0.18); }
+tbody tr.pass-row { background: var(--success-dim); }
+tbody tr.pass-row:hover { background: rgba(34,197,94,0.2); }
 
 td {
   padding: 8px 14px;
@@ -358,7 +362,7 @@ td.highlight-bad {
 }
 
 td.highlight-ok {
-  color: var(--accent);
+  color: var(--success);
 }
 
 .badge {
@@ -371,16 +375,9 @@ td.highlight-ok {
   text-transform: uppercase;
 }
 
-.badge-pass { background: var(--accent-dim); color: var(--accent); }
+.badge-pass { background: var(--success-dim); color: var(--success); }
 .badge-fail { background: var(--danger-dim); color: var(--danger); }
 .badge-missing { background: var(--warn-dim); color: var(--warn); }
-
-.download-row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
 
 .export-row {
   display: flex;
@@ -410,13 +407,13 @@ td.highlight-ok {
 
 .dl-btn.primary {
   background: var(--accent);
-  color: #0e0f13;
+  color: #ffffff;
   border-color: var(--accent);
   font-weight: 600;
 }
 
 .dl-btn.primary:hover {
-  background: #00f0c0;
+  background: #a00d24;
 }
 
 .empty-state {
