@@ -9,12 +9,15 @@
 </head>
 <body>
 
-<button class="theme-toggle" id="theme-toggle">Light Mode</button>
-
 <div class="header">
-  <div class="header-label">Relay Data Checker</div>
-  <h1>Relay Data Checker</h1>
-  <p class="subtitle">Compare new test results against master circuit reference — flags mismatched or missing circuit/serial pairs</p>
+  <div class="header-inner">
+    <div>
+      <div class="header-label">Relay Data Checker</div>
+      <h1>Relay Data Checker</h1>
+      <p class="subtitle">Compare new test results against master circuit reference — flags mismatched or missing circuit/serial pairs</p>
+    </div>
+    <button class="theme-toggle" id="theme-toggle" type="button">☀ Light Mode</button>
+  </div>
 </div>
 
 <div class="main">
@@ -47,9 +50,9 @@
     <div class="stats-row" id="stats-row"></div>
 
     <div class="tabs">
-      <div class="tab active" data-tab="exceptions">Failures</div>
-      <div class="tab" data-tab="notinmaster">Missing From New File</div>
-      <div class="tab" data-tab="fulldata">Full Data</div>
+      <button class="tab active" type="button" data-tab="exceptions">Failures</button>
+      <button class="tab" type="button" data-tab="notinmaster">Missing From New File</button>
+      <button class="tab" type="button" data-tab="fulldata">Full Data</button>
     </div>
 
     <div class="tab-panel active" id="tab-exceptions"></div>
