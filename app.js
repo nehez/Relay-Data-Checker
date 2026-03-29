@@ -1,4 +1,4 @@
-const VERSION = 'v1.6.0';
+const VERSION = 'v1.7.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -406,8 +406,7 @@ function checkReady() {
 
 // ─── Event Wiring ─────────────────────────────────────────────────
 document.getElementById('version-label').textContent = VERSION;
-document.body.classList.add('light');
-document.getElementById('theme-toggle').textContent = '☾ Dark Mode';
+document.getElementById('theme-toggle').textContent = '☀ Light Mode';
 
 document.getElementById('file-master').addEventListener('change', async e => {
   const file = e.target.files[0];
