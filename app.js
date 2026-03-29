@@ -210,10 +210,11 @@ function renderStats(results) {
   `;
 }
 
-function renderTable(containerId, rows, allHeaders, showIssueCol) {
+function renderTable(containerId, rows, allHeaders, showIssueCol, description) {
   const container = document.getElementById(containerId);
+  const descHtml = description ? `<p class="tab-info">${description}</p>` : '';
   if (!rows.length) {
-    container.innerHTML = '<div class="empty-state">No rows to display.</div>';
+    container.innerHTML = descHtml + '<div class="empty-state">No rows to display.</div>';
     return;
   }
 
@@ -241,7 +242,7 @@ function renderTable(containerId, rows, allHeaders, showIssueCol) {
     return `<tr class="${isFail ? 'mismatch-row' : 'pass-row'}">${cells}</tr>`;
   }).join('');
 
-  container.innerHTML = `<div class="table-wrap"><table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>`;
+  container.innerHTML = descHtml + `<div class="table-wrap"><table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>`;
 }
 
 function renderNotInMaster(master, newResults) {
@@ -249,8 +250,9 @@ function renderNotInMaster(master, newResults) {
   const missing = master.filter(m => !newSerials.has(m.serialNumber.toUpperCase()));
 
   const container = document.getElementById('tab-notinmaster');
+  const descHtml = '<p class="tab-info">Master records whose serial number does not appear anywhere in the new file — these circuits were expected but are completely absent from the new results.</p>';
   if (!missing.length) {
-    container.innerHTML = '<div class="empty-state">All master serials are present in the new file.</div>';
+    container.innerHTML = descHtml + '<div class="empty-state">All master serials are present in the new file.</div>';
     return;
   }
 
@@ -261,7 +263,7 @@ function renderNotInMaster(master, newResults) {
     </tr>
   `).join('');
 
-  container.innerHTML = `
+  container.innerHTML = descHtml + `
     <div class="table-wrap">
       <table>
         <thead><tr><th>Circuit Name (Master)</th><th>Serial Number (Master)</th></tr></thead>
@@ -315,7 +317,7 @@ function exportExcel(results, masterData, allHeaders) {
   const total = results.length;
   const fails = results.filter(r => r._status === 'FAIL').length;
   const summaryData = [
-    ['Windermere Validation Report'],
+    ['Relay Data Checker — Validation Report'],
     ['Generated', new Date().toLocaleString()],
     [],
     ['Total Rows', total],
@@ -327,7 +329,7 @@ function exportExcel(results, masterData, allHeaders) {
   const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
   XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
 
-  XLSX.writeFile(wb, `windermere_validation_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `relay-data-checker_validation_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function exportCSV(results, allHeaders) {
@@ -344,7 +346,7 @@ function exportCSV(results, allHeaders) {
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `windermere_failures_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `relay-data-checker_failures_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
 
@@ -446,8 +448,8 @@ document.getElementById('run-btn').addEventListener('click', async () => {
     renderStats(validationResults);
 
     const fails = validationResults.filter(r => r._status === 'FAIL');
-    renderTable('tab-exceptions', fails, newData.headers, true);
-    renderTable('tab-fulldata', validationResults, newData.headers, true);
+    renderTable('tab-exceptions', fails, newData.headers, true, 'Rows from the new file where the circuit name, serial number, or the combination was not found in the master. Each row shows the specific reason it failed.');
+    renderTable('tab-fulldata', validationResults, newData.headers, true, 'Every row from the new file. Green = matched the master (PASS). Red = did not match (FAIL).');
     renderNotInMaster(masterData, validationResults);
 
     document.getElementById('results-panel').classList.add('visible');

@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Windermere Circuit Validator</title>
+  <title>Relay Data Checker</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
 <div class="header">
-  <div class="header-label">Circuit Validation Tool</div>
-  <h1>Windermere Validator</h1>
+  <div class="header-label">Relay Data Checker</div>
+  <h1>Relay Data Checker</h1>
   <p class="subtitle">Compare new test results against master circuit reference — flags mismatched or missing circuit/serial pairs</p>
 </div>
 
@@ -47,7 +47,7 @@
     <div class="tabs">
       <div class="tab active" data-tab="exceptions">Failures</div>
       <div class="tab" data-tab="fulldata">Full Data</div>
-      <div class="tab" data-tab="notinmaster">Not In Master</div>
+      <div class="tab" data-tab="notinmaster">Missing From New File</div>
     </div>
 
     <div class="tab-panel active" id="tab-exceptions"></div>
