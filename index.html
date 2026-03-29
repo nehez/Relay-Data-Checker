@@ -12,7 +12,7 @@
 <div class="header">
   <div class="header-inner">
     <div>
-      <div class="header-label">Relay Data Checker</div>
+      <div class="header-label" id="version-label"></div>
       <h1>Relay Data Checker</h1>
       <p class="subtitle">Compare new test results against master circuit reference — flags mismatched or missing circuit/serial pairs</p>
     </div>
@@ -45,6 +45,11 @@
 
   <button class="run-btn" id="run-btn" disabled>Run Validation</button>
 
+  <div class="export-row" id="export-row" style="display:none">
+    <button class="dl-btn primary" id="dl-excel">Download Excel Report</button>
+    <button class="dl-btn" id="dl-csv">Download CSV Report</button>
+  </div>
+
   <div class="results-panel" id="results-panel">
 
     <div class="stats-row" id="stats-row"></div>
@@ -58,11 +63,6 @@
     <div class="tab-panel active" id="tab-exceptions"></div>
     <div class="tab-panel" id="tab-notinmaster"></div>
     <div class="tab-panel" id="tab-fulldata"></div>
-
-    <div class="download-row">
-      <button class="dl-btn primary" id="dl-excel">Download Excel Report</button>
-      <button class="dl-btn" id="dl-csv">Download Failures CSV</button>
-    </div>
 
   </div>
 

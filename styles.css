@@ -382,6 +382,13 @@ td.highlight-ok {
   flex-wrap: wrap;
 }
 
+.export-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .dl-btn {
   background: var(--surface2);
   border: 1px solid var(--border);
