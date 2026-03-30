@@ -1,4 +1,4 @@
-const VERSION = 'v2.2.0';
+const VERSION = 'v2.3.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -310,16 +310,19 @@ function renderForTab(tabId) {
 // ─── Excel Export ─────────────────────────────────────────────────
 function exportExcel(results, masterData, allHeaders) {
   const wb = XLSX.utils.book_new();
+  const order = masterSortOrder();
+  const sorted = sortByMaster(results, order);
+  const sortedFails = sorted.filter(r => r._status === 'FAIL');
 
   const fullHeaders = ['Status', 'Issue', ...allHeaders];
-  const fullRows = results.map(r => {
+  const fullRows = sorted.map(r => {
     const row = [r._status, r._issue];
     allHeaders.forEach(h => row.push(r[h] ?? ''));
     return row;
   });
   const fullSheet = XLSX.utils.aoa_to_sheet([fullHeaders, ...fullRows]);
 
-  results.forEach((r, i) => {
+  sorted.forEach((r, i) => {
     const rowIdx = i + 1;
     const cellAddr = XLSX.utils.encode_cell({ r: rowIdx, c: 0 });
     if (!fullSheet[cellAddr]) return;
@@ -330,7 +333,7 @@ function exportExcel(results, masterData, allHeaders) {
 
   XLSX.utils.book_append_sheet(wb, fullSheet, 'Full Data');
 
-  const failRows = results.filter(r => r._status === 'FAIL');
+  const failRows = sortedFails;
   if (failRows.length) {
     const excRows = failRows.map(r => {
       const row = [r._status, r._issue];
@@ -374,17 +377,20 @@ function exportCSV(results, masterData, allHeaders) {
     return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
+  const order = masterSortOrder();
+  const sorted = sortByMaster(results, order);
+
   const lines = [];
   const fullHeaders = ['Status', 'Issue', ...allHeaders];
 
   lines.push('FULL DATA');
   lines.push(fullHeaders.map(escape).join(','));
-  results.forEach(r => {
+  sorted.forEach(r => {
     lines.push([r._status, r._issue, ...allHeaders.map(h => r[h] ?? '')].map(escape).join(','));
   });
   lines.push('');
 
-  const fails = results.filter(r => r._status === 'FAIL');
+  const fails = sortByMaster(results.filter(r => r._status === 'FAIL'), order);
   lines.push('FAILURES');
   lines.push(fullHeaders.map(escape).join(','));
   fails.forEach(r => {
