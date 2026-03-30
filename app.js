@@ -1,4 +1,4 @@
-const VERSION = 'v2.4.0';
+const VERSION = 'v2.5.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -289,26 +289,42 @@ function renderNotInMaster(master, newResults) {
     </div>`;
 }
 
-function masterSortOrder() {
-  const order = new Map();
+function masterSortOrders() {
+  const byCircuit = new Map();
+  const bySerial  = new Map();
   masterData.forEach((m, i) => {
-    const key = m.circuitName.toUpperCase();
-    if (!order.has(key)) order.set(key, i);
+    const cn = m.circuitName.toUpperCase();
+    const sn = m.serialNumber.toUpperCase();
+    if (!byCircuit.has(cn)) byCircuit.set(cn, i);
+    if (!bySerial.has(sn))  bySerial.set(sn, i);
   });
-  return order;
+  return { byCircuit, bySerial };
 }
 
-function sortByMaster(rows, order) {
+function sortByMaster(rows, orders) {
+  const { byCircuit, bySerial } = orders;
+  const getIdx = row => {
+    const cn = (row._circuitName  || '').toUpperCase();
+    const sn = (row._serialNumber || '').toUpperCase();
+    if (byCircuit.has(cn)) return byCircuit.get(cn);
+    if (bySerial.has(sn))  return bySerial.get(sn);
+    return Infinity;
+  };
+  const getComment = row =>
+    String(row['Comments'] || row['Comment'] || row['COMMENTS'] || '').toUpperCase();
+
   return [...rows].sort((a, b) => {
-    const ai = order.get((a._circuitName || '').toUpperCase()) ?? Infinity;
-    const bi = order.get((b._circuitName || '').toUpperCase()) ?? Infinity;
+    const ai = getIdx(a);
+    const bi = getIdx(b);
     if (ai !== bi) return ai - bi;
-    return (a._circuitName || '').localeCompare(b._circuitName || '');
+    // Both unresolved — fall back to Comments alphabetical
+    if (ai === Infinity) return getComment(a).localeCompare(getComment(b));
+    return 0;
   });
 }
 
 function renderForTab(tabId) {
-  const order = masterSortOrder();
+  const order = masterSortOrders();
   if (tabId === 'exceptions') {
     const fails = sortByMaster(validationResults.filter(r => r._status === 'FAIL'), order);
     renderTable('tab-exceptions', fails, newData.headers, true, 'Rows from the new file where the circuit name, serial number, or the combination was not found in the master. Each row shows the specific reason it failed.');
@@ -323,7 +339,7 @@ function renderForTab(tabId) {
 // ─── Excel Export ─────────────────────────────────────────────────
 function exportExcel(results, masterData, allHeaders) {
   const wb = XLSX.utils.book_new();
-  const order = masterSortOrder();
+  const order = masterSortOrders();
   const sorted = sortByMaster(results, order);
   const sortedFails = sorted.filter(r => r._status === 'FAIL');
 
@@ -390,7 +406,7 @@ function exportCSV(results, masterData, allHeaders) {
     return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
-  const order = masterSortOrder();
+  const order = masterSortOrders();
   const sorted = sortByMaster(results, order);
 
   const lines = [];
