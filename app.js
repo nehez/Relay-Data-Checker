@@ -1,4 +1,4 @@
-const VERSION = 'v2.1.0';
+const VERSION = 'v2.2.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -251,9 +251,7 @@ function renderTable(containerId, rows, allHeaders, showIssueCol, description) {
 
 function renderNotInMaster(master, newResults) {
   const newSerials = new Set(newResults.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
-  const missing = master
-    .filter(m => !newSerials.has(m.serialNumber.toUpperCase()))
-    .sort((a, b) => a.circuitName.localeCompare(b.circuitName));
+  const missing = master.filter(m => !newSerials.has(m.serialNumber.toUpperCase()));
 
   const container = document.getElementById('tab-notinmaster');
   const descHtml = '<p class="tab-info">Master records whose serial number does not appear anywhere in the new file — these circuits were expected but are completely absent from the new results.</p>';
@@ -278,20 +276,34 @@ function renderNotInMaster(master, newResults) {
     </div>`;
 }
 
+function masterSortOrder() {
+  const order = new Map();
+  masterData.forEach((m, i) => {
+    const key = m.circuitName.toUpperCase();
+    if (!order.has(key)) order.set(key, i);
+  });
+  return order;
+}
+
+function sortByMaster(rows, order) {
+  return [...rows].sort((a, b) => {
+    const ai = order.get((a._circuitName || '').toUpperCase()) ?? Infinity;
+    const bi = order.get((b._circuitName || '').toUpperCase()) ?? Infinity;
+    if (ai !== bi) return ai - bi;
+    return (a._circuitName || '').localeCompare(b._circuitName || '');
+  });
+}
+
 function renderForTab(tabId) {
+  const order = masterSortOrder();
   if (tabId === 'exceptions') {
-    const fails = validationResults
-      .filter(r => r._status === 'FAIL')
-      .sort((a, b) => (a._circuitName || '').localeCompare(b._circuitName || ''));
+    const fails = sortByMaster(validationResults.filter(r => r._status === 'FAIL'), order);
     renderTable('tab-exceptions', fails, newData.headers, true, 'Rows from the new file where the circuit name, serial number, or the combination was not found in the master. Each row shows the specific reason it failed.');
   } else if (tabId === 'notinmaster') {
     renderNotInMaster(masterData, validationResults);
   } else if (tabId === 'fulldata') {
-    const sorted = [...validationResults].sort((a, b) => {
-      if (a._status !== b._status) return a._status === 'FAIL' ? -1 : 1;
-      return (a._circuitName || '').localeCompare(b._circuitName || '');
-    });
-    renderTable('tab-fulldata', sorted, newData.headers, true, 'Every row from the new file, failures first. Green = matched the master (PASS). Red = did not match (FAIL).');
+    const sorted = sortByMaster(validationResults, order);
+    renderTable('tab-fulldata', sorted, newData.headers, true, 'Every row from the new file in master order. Green = matched the master (PASS). Red = did not match (FAIL).');
   }
 }
 
