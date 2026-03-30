@@ -1,4 +1,4 @@
-const VERSION = 'v2.3.0';
+const VERSION = 'v2.4.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -8,12 +8,21 @@ let validationResults = null;
 let renderedTabs = new Set();
 
 // ─── Helpers ──────────────────────────────────────────────────────
-function formatCellValue(val) {
+function formatCellValue(val, isDateCol = false) {
   if (val instanceof Date) {
     // Use UTC methods — SheetJS creates dates at UTC midnight, local methods shift the day in negative-offset timezones
     const mm = String(val.getUTCMonth() + 1).padStart(2, '0');
     const dd = String(val.getUTCDate()).padStart(2, '0');
     const yyyy = val.getUTCFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  }
+  // Some date cells aren't formatted as dates in Excel so SheetJS returns a raw serial number.
+  // Only convert for columns whose header contains "date" — safe for serial number columns.
+  if (isDateCol && typeof val === 'number' && val > 25569 && val < 62091) {
+    const d = new Date(Math.round((val - 25569) * 86400000));
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const yyyy = d.getUTCFullYear();
     return `${mm}/${dd}/${yyyy}`;
   }
   return val;
@@ -130,12 +139,16 @@ async function loadNew(file) {
     throw new Error('New file must have "Nomenclature" and "Serial Number" columns.');
   }
 
+  const dateColIndices = new Set(
+    headers.map((h, i) => h.toLowerCase().includes('date') ? i : -1).filter(i => i >= 0)
+  );
+
   const rows = [];
   for (let i = headerIdx + 1; i < rawRows.length; i++) {
     const row = rawRows[i];
     if (row.every(c => c === '' || c === null || c === undefined)) continue;
     const obj = {};
-    headers.forEach((h, idx) => { obj[h] = formatCellValue(row[idx] ?? ''); });
+    headers.forEach((h, idx) => { obj[h] = formatCellValue(row[idx] ?? '', dateColIndices.has(idx)); });
     rows.push(obj);
   }
 
