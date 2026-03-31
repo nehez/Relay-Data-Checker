@@ -1,4 +1,4 @@
-const VERSION = 'v2.5.0';
+const VERSION = 'v2.6.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -310,16 +310,17 @@ function sortByMaster(rows, orders) {
     if (bySerial.has(sn))  return bySerial.get(sn);
     return Infinity;
   };
+  // Find comment value — try common column name variants
   const getComment = row =>
-    String(row['Comments'] || row['Comment'] || row['COMMENTS'] || '').toUpperCase();
+    String(row['Comments'] || row['Comment'] || row['COMMENTS'] || row['comment'] || '');
 
   return [...rows].sort((a, b) => {
     const ai = getIdx(a);
     const bi = getIdx(b);
     if (ai !== bi) return ai - bi;
-    // Both unresolved — fall back to Comments alphabetical
-    if (ai === Infinity) return getComment(a).localeCompare(getComment(b));
-    return 0;
+    // Tie (same master position, or both unresolved) — sort by Comments with
+    // numeric awareness so R1-2A sorts before R1-10A correctly
+    return getComment(a).localeCompare(getComment(b), undefined, { numeric: true, sensitivity: 'base' });
   });
 }
 

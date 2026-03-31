@@ -217,6 +217,16 @@ h1 {
   letter-spacing: 1px;
 }
 
+/* ── Transit signal flash (55 flashes/min = 1.091s per cycle) ─── */
+@keyframes lunar-flash {
+  0%, 49% { opacity: 1; }
+  50%, 99% { opacity: 0; }
+}
+
+.signal-lunar {
+  animation: lunar-flash 1.091s linear infinite;
+}
+
 /* ── Header transit car icon ───────────────────────────────────── */
 .header-icon {
   width: 150px;
