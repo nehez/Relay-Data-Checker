@@ -1,4 +1,4 @@
-const VERSION = 'v2.7.0';
+const VERSION = 'v2.8.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -291,7 +291,7 @@ function renderNotInMaster(master, newResults) {
 
 function renderUniqueErrors() {
   const container = document.getElementById('tab-uniqueerrors');
-  const desc = '<p class="tab-info">Each unique failing relay shown once — deduplicated by Nomenclature + Serial Number + Issue. The Count column shows how many test rows had that exact failure. Use this to quickly identify distinct problems without repeat noise.</p>';
+  const desc = '<p class="tab-info">Each unique failing relay shown once — deduplicated by Nomenclature + Serial Number + Issue. The Count column shows how many test rows had that exact failure. Use this to get a clean list of distinct problems without repeat noise.</p>';
 
   const fails = validationResults.filter(r => r._status === 'FAIL');
   if (!fails.length) {
@@ -424,7 +424,7 @@ function exportExcel(results, masterData, allHeaders) {
   if (uniqueErrRows.length) {
     const ueData = uniqueErrRows.map(r => [r.count, r._status, r._issue, r._circuitName, r._serialNumber]);
     const ueSheet = XLSX.utils.aoa_to_sheet([['Count', 'Status', 'Issue', 'Nomenclature', 'Serial Number'], ...ueData]);
-    XLSX.utils.book_append_sheet(wb, ueSheet, 'Unique Errors');
+    XLSX.utils.book_append_sheet(wb, ueSheet, 'Unique Failures');
   }
 
   const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
@@ -487,7 +487,7 @@ function exportCSV(results, masterData, allHeaders) {
     if (seenC.has(key)) { seenC.get(key).count++; }
     else { seenC.set(key, { ...r, count: 1 }); }
   });
-  lines.push('UNIQUE ERRORS');
+  lines.push('UNIQUE FAILURES');
   lines.push('Count,Status,Issue,Nomenclature,Serial Number');
   [...seenC.values()].forEach(r => {
     lines.push([r.count, r._status, r._issue, r._circuitName, r._serialNumber].map(escape).join(','));
