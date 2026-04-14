@@ -1,4 +1,4 @@
-const VERSION = 'v2.9.0';
+const VERSION = 'v2.10.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -313,15 +313,19 @@ function renderUniqueFailures() {
 
   const unique = sortByMaster([...seen.values()], order);
 
-  const thead = '<tr><th>Count</th><th>Status</th><th>Issue</th><th>Nomenclature</th><th>Serial Number</th></tr>';
-  const tbody = unique.map(r => `
+  const thead = '<tr><th>Count</th><th>Status</th><th>Issue</th><th>Nomenclature</th><th>Serial Number</th><th>Report Number</th></tr>';
+  const tbody = unique.map(r => {
+    const reportNum = r['Report Number'] || r['Report No'] || r['Report#'] || r['Report No.'] || '';
+    return `
     <tr class="mismatch-row">
       <td><span class="badge badge-fail">${r.count}</span></td>
       <td><span class="badge badge-fail">FAIL</span></td>
       <td class="highlight-bad">${r._issue}</td>
       <td class="highlight-bad">${r._circuitName}</td>
       <td class="highlight-bad">${r._serialNumber}</td>
-    </tr>`).join('');
+      <td>${reportNum}</td>
+    </tr>`;
+  }).join('');
 
   container.innerHTML = desc + `<div class="table-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
 }
@@ -422,8 +426,9 @@ function exportExcel(results, masterData, allHeaders) {
   });
   const uniqueErrRows = [...seenU.values()];
   if (uniqueErrRows.length) {
-    const ueData = uniqueErrRows.map(r => [r.count, r._status, r._issue, r._circuitName, r._serialNumber]);
-    const ueSheet = XLSX.utils.aoa_to_sheet([['Count', 'Status', 'Issue', 'Nomenclature', 'Serial Number'], ...ueData]);
+    const getReport = r => r['Report Number'] || r['Report No'] || r['Report#'] || r['Report No.'] || '';
+    const ueData = uniqueErrRows.map(r => [r.count, r._status, r._issue, r._circuitName, r._serialNumber, getReport(r)]);
+    const ueSheet = XLSX.utils.aoa_to_sheet([['Count', 'Status', 'Issue', 'Nomenclature', 'Serial Number', 'Report Number'], ...ueData]);
     XLSX.utils.book_append_sheet(wb, ueSheet, 'Unique Failures');
   }
 
@@ -488,9 +493,10 @@ function exportCSV(results, masterData, allHeaders) {
     else { seenC.set(key, { ...r, count: 1 }); }
   });
   lines.push('UNIQUE FAILURES');
-  lines.push('Count,Status,Issue,Nomenclature,Serial Number');
+  lines.push('Count,Status,Issue,Nomenclature,Serial Number,Report Number');
   [...seenC.values()].forEach(r => {
-    lines.push([r.count, r._status, r._issue, r._circuitName, r._serialNumber].map(escape).join(','));
+    const rpt = r['Report Number'] || r['Report No'] || r['Report#'] || r['Report No.'] || '';
+    lines.push([r.count, r._status, r._issue, r._circuitName, r._serialNumber, rpt].map(escape).join(','));
   });
   lines.push('');
 
