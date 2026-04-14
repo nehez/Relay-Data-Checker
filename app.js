@@ -1,4 +1,4 @@
-const VERSION = 'v2.6.0';
+const VERSION = 'v2.7.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -289,6 +289,43 @@ function renderNotInMaster(master, newResults) {
     </div>`;
 }
 
+function renderUniqueErrors() {
+  const container = document.getElementById('tab-uniqueerrors');
+  const desc = '<p class="tab-info">Each unique failing relay shown once — deduplicated by Nomenclature + Serial Number + Issue. The Count column shows how many test rows had that exact failure. Use this to quickly identify distinct problems without repeat noise.</p>';
+
+  const fails = validationResults.filter(r => r._status === 'FAIL');
+  if (!fails.length) {
+    container.innerHTML = desc + '<div class="empty-state">No failures found.</div>';
+    return;
+  }
+
+  // Deduplicate by Nomenclature + Serial Number + Issue
+  const seen = new Map();
+  const order = masterSortOrders();
+  fails.forEach(r => {
+    const key = `${r._circuitName}|||${r._serialNumber}|||${r._issue}`;
+    if (seen.has(key)) {
+      seen.get(key).count++;
+    } else {
+      seen.set(key, { ...r, count: 1 });
+    }
+  });
+
+  const unique = sortByMaster([...seen.values()], order);
+
+  const thead = '<tr><th>Count</th><th>Status</th><th>Issue</th><th>Nomenclature</th><th>Serial Number</th></tr>';
+  const tbody = unique.map(r => `
+    <tr class="mismatch-row">
+      <td><span class="badge badge-fail">${r.count}</span></td>
+      <td><span class="badge badge-fail">FAIL</span></td>
+      <td class="highlight-bad">${r._issue}</td>
+      <td class="highlight-bad">${r._circuitName}</td>
+      <td class="highlight-bad">${r._serialNumber}</td>
+    </tr>`).join('');
+
+  container.innerHTML = desc + `<div class="table-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
+}
+
 function masterSortOrders() {
   const byCircuit = new Map();
   const bySerial  = new Map();
@@ -326,7 +363,9 @@ function sortByMaster(rows, orders) {
 
 function renderForTab(tabId) {
   const order = masterSortOrders();
-  if (tabId === 'exceptions') {
+  if (tabId === 'uniqueerrors') {
+    renderUniqueErrors();
+  } else if (tabId === 'exceptions') {
     const fails = sortByMaster(validationResults.filter(r => r._status === 'FAIL'), order);
     renderTable('tab-exceptions', fails, newData.headers, true, 'Rows from the new file where the circuit name, serial number, or the combination was not found in the master. Each row shows the specific reason it failed.');
   } else if (tabId === 'notinmaster') {
@@ -372,6 +411,20 @@ function exportExcel(results, masterData, allHeaders) {
     });
     const excSheet = XLSX.utils.aoa_to_sheet([fullHeaders, ...excRows]);
     XLSX.utils.book_append_sheet(wb, excSheet, 'Failures');
+  }
+
+  // Unique Errors sheet
+  const seenU = new Map();
+  sortedFails.forEach(r => {
+    const key = `${r._circuitName}|||${r._serialNumber}|||${r._issue}`;
+    if (seenU.has(key)) { seenU.get(key).count++; }
+    else { seenU.set(key, { ...r, count: 1 }); }
+  });
+  const uniqueErrRows = [...seenU.values()];
+  if (uniqueErrRows.length) {
+    const ueData = uniqueErrRows.map(r => [r.count, r._status, r._issue, r._circuitName, r._serialNumber]);
+    const ueSheet = XLSX.utils.aoa_to_sheet([['Count', 'Status', 'Issue', 'Nomenclature', 'Serial Number'], ...ueData]);
+    XLSX.utils.book_append_sheet(wb, ueSheet, 'Unique Errors');
   }
 
   const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
@@ -425,6 +478,19 @@ function exportCSV(results, masterData, allHeaders) {
   lines.push(fullHeaders.map(escape).join(','));
   fails.forEach(r => {
     lines.push([r._status, r._issue, ...allHeaders.map(h => r[h] ?? '')].map(escape).join(','));
+  });
+  lines.push('');
+
+  const seenC = new Map();
+  fails.forEach(r => {
+    const key = `${r._circuitName}|||${r._serialNumber}|||${r._issue}`;
+    if (seenC.has(key)) { seenC.get(key).count++; }
+    else { seenC.set(key, { ...r, count: 1 }); }
+  });
+  lines.push('UNIQUE ERRORS');
+  lines.push('Count,Status,Issue,Nomenclature,Serial Number');
+  [...seenC.values()].forEach(r => {
+    lines.push([r.count, r._status, r._issue, r._circuitName, r._serialNumber].map(escape).join(','));
   });
   lines.push('');
 
@@ -551,6 +617,7 @@ document.getElementById('run-btn').addEventListener('click', async () => {
     const exceptionsPanel = document.getElementById('tab-exceptions');
     exceptionsPanel.classList.add('active');
     exceptionsPanel.innerHTML = '<div class="loading-state"><span class="loading-dot"></span>Rendering rows\u2026</div>';
+    document.getElementById('tab-uniqueerrors').innerHTML = '<div class="empty-state">Click tab to load.</div>';
     document.getElementById('tab-notinmaster').innerHTML = '<div class="empty-state">Click tab to load.</div>';
     document.getElementById('tab-fulldata').innerHTML = '<div class="empty-state">Click tab to load.</div>';
 
