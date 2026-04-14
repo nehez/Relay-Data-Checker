@@ -1,4 +1,4 @@
-const VERSION = 'v2.8.0';
+const VERSION = 'v2.9.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -289,7 +289,7 @@ function renderNotInMaster(master, newResults) {
     </div>`;
 }
 
-function renderUniqueErrors() {
+function renderUniqueFailures() {
   const container = document.getElementById('tab-uniqueerrors');
   const desc = '<p class="tab-info">Each unique failing relay shown once — deduplicated by Nomenclature + Serial Number + Issue. The Count column shows how many test rows had that exact failure. Use this to get a clean list of distinct problems without repeat noise.</p>';
 
@@ -364,7 +364,7 @@ function sortByMaster(rows, orders) {
 function renderForTab(tabId) {
   const order = masterSortOrders();
   if (tabId === 'uniqueerrors') {
-    renderUniqueErrors();
+    renderUniqueFailures();
   } else if (tabId === 'exceptions') {
     const fails = sortByMaster(validationResults.filter(r => r._status === 'FAIL'), order);
     renderTable('tab-exceptions', fails, newData.headers, true, 'Rows from the new file where the circuit name, serial number, or the combination was not found in the master. Each row shows the specific reason it failed.');
@@ -413,7 +413,7 @@ function exportExcel(results, masterData, allHeaders) {
     XLSX.utils.book_append_sheet(wb, excSheet, 'Failures');
   }
 
-  // Unique Errors sheet
+  // Unique Failures sheet
   const seenU = new Map();
   sortedFails.forEach(r => {
     const key = `${r._circuitName}|||${r._serialNumber}|||${r._issue}`;
