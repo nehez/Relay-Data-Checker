@@ -1,4 +1,4 @@
-const VERSION = 'v2.16.0';
+const VERSION = 'v2.17.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -506,6 +506,9 @@ async function exportExcel(results, masterData, allHeaders) {
     wsUE.addRow(['Count', 'Status', 'Issue', 'Nomenclature', 'Serial Number', 'Report Number']).font = { bold: true };
     const getReport = r => r['Report Number'] || r['Report No'] || r['Report#'] || r['Report No.'] || '';
     uniqueErrRows.forEach(r => wsUE.addRow([r.count, r._status, r._issue, r._circuitName, r._serialNumber, getReport(r)]));
+    const totalCount = uniqueErrRows.reduce((sum, r) => sum + r.count, 0);
+    const totalRow = wsUE.addRow([totalCount, '', 'TOTAL failure instances', '', '', '']);
+    totalRow.font = { bold: true };
   }
 
   const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
