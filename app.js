@@ -1,4 +1,4 @@
-const VERSION = 'v2.12.0';
+const VERSION = 'v2.13.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -296,42 +296,70 @@ function renderNotInMaster(master, newResults) {
 }
 
 function renderSummary(results, master) {
-  const total   = results.length;
-  const fails   = results.filter(r => r._status === 'FAIL');
-  const passes  = total - fails.length;
-  const pct     = total ? Math.round((passes / total) * 100) : 0;
+  const total     = results.length;
+  const fails     = results.filter(r => r._status === 'FAIL');
+  const failRate  = total ? fails.length / total : 0;
 
-  const issueCounts = {};
-  fails.forEach(r => { issueCounts[r._issue] = (issueCounts[r._issue] || 0) + 1; });
-  const topIssues = Object.entries(issueCounts).sort((a, b) => b[1] - a[1]);
+  const byType = {};
+  fails.forEach(r => { byType[r._issue] = (byType[r._issue] || 0) + 1; });
+  const sorted     = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+  const dominant   = sorted[0];
+  const domPct     = dominant ? Math.round((dominant[1] / fails.length) * 100) : 0;
 
-  const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
-  const missingCount = master.filter(m => !newSerials.has(m.serialNumber.toUpperCase())).length;
+  const uniqueFails = new Set(fails.map(r => `${r._circuitName}|||${r._serialNumber}|||${r._issue}`)).size;
+  const repeatedTesting = fails.length > 0 && fails.length > uniqueFails * 1.5;
 
-  let s = `Validated <strong>${total.toLocaleString()}</strong> relays from the new file. `;
+  const newSerials    = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
+  const missingCount  = master.filter(m => !newSerials.has(m.serialNumber.toUpperCase())).length;
+  const missingPct    = master.length ? Math.round((missingCount / master.length) * 100) : 0;
+
+  let analysis = '';
 
   if (fails.length === 0) {
-    s += `<strong>All relays passed</strong> — every circuit name and serial number matched the master.`;
-  } else {
-    s += `<strong>${fails.length.toLocaleString()}</strong> failed (${100 - pct}% failure rate). `;
-    if (topIssues.length > 0) {
-      const top = topIssues[0];
-      s += `Most common issue: <em>${top[0]}</em> — ${top[1]} ${top[1] === 1 ? 'relay' : 'relays'}`;
-      if (topIssues.length > 1) {
-        s += `; <em>${topIssues[1][0]}</em> — ${topIssues[1][1]}`;
-      }
-      if (topIssues.length > 2) {
-        s += `; and ${topIssues.length - 2} other issue type${topIssues.length - 2 > 1 ? 's' : ''}`;
-      }
-      s += `. `;
+    analysis = `<strong>Clean run.</strong> Every relay matched the master on both circuit name and serial number. No action required.`;
+
+  } else if (failRate > 0.9) {
+    if (dominant && dominant[0].includes('Serial Number not in master') && domPct > 60) {
+      analysis = `<strong>Likely column mismatch in the master file.</strong> Over ${Math.round(failRate * 100)}% of records failed on serial number alone. A failure rate this high on a single field almost always points to the master reading the wrong column — for example, a "Device Serial" or secondary serial field instead of the relay serial number. Verify which serial column was picked up in Step 1.`;
+    } else if (dominant && dominant[0].includes('Circuit Name + Serial Number')) {
+      analysis = `<strong>Possible wrong master file.</strong> Nearly every record failed with neither field found. This usually means the master file covers a different location or system than the new results file — the two datasets don't appear to be from the same installation.`;
+    } else {
+      analysis = `<strong>Systemic issue — not individual relay failures.</strong> A ${Math.round(failRate * 100)}% failure rate is too high to be isolated hardware problems. Most likely cause: a column mapping issue, outdated master file, or a major reconfiguration that hasn't been captured in the master yet.`;
     }
+
+  } else if (failRate > 0.3) {
+    if (dominant && dominant[0].includes('Pair mismatch') && domPct > 50) {
+      analysis = `<strong>Suggests hardware has been reorganized.</strong> The dominant failure is pair mismatch — circuit names and serial numbers both exist in the master, just not paired together. This pattern is consistent with relays being physically moved, swapped between rack positions, or reinstalled after maintenance without a corresponding master update.`;
+    } else if (dominant && dominant[0].includes('Serial Number') && domPct > 60) {
+      analysis = `<strong>Serial number population has changed.</strong> High failure rate driven by serial number mismatches with circuit names largely intact. This suggests a significant portion of hardware has been replaced since the master was last updated — the rack positions are correct but the units in them are different.`;
+    } else {
+      analysis = `<strong>Widespread discrepancies across multiple failure types.</strong> The mix of failure reasons at this rate points to either an outdated master file or a large-scale change (new equipment batch, section reconfiguration) that hasn't been fully registered.`;
+    }
+
+  } else if (failRate > 0.05) {
+    if (dominant && dominant[0].includes('Pair mismatch') && domPct > 50) {
+      analysis = `<strong>Isolated swaps or moves detected.</strong> Most failures are pair mismatches on specific units — both values are known to the master, just not together. This is typical after spot maintenance where individual relays were replaced or repositioned. Field verification of those specific units is recommended.`;
+    } else if (dominant && dominant[0].includes('Serial Number') && domPct > 60) {
+      analysis = `<strong>Small number of serial replacements.</strong> A targeted set of serial number mismatches with correct circuit names suggests these positions had hardware replaced recently. Likely just needs the master updated for those specific units.`;
+    } else {
+      analysis = `<strong>Minor discrepancies — likely recent changes.</strong> The ${Math.round(failRate * 100)}% failure rate is low enough that this appears to be normal drift from installations or replacements since the last master update rather than a systemic problem.`;
+    }
+
+  } else {
+    analysis = `<strong>Data is in good shape.</strong> ${Math.round(failRate * 100)}% failure rate. The small number of failures likely represent recently installed or replaced components not yet registered in the master — routine follow-up items rather than a data quality concern.`;
   }
 
-  s += missingCount > 0
-    ? `<strong>${missingCount}</strong> master circuit${missingCount > 1 ? 's were' : ' was'} not found in the new file at all.`
-    : `All master circuits are accounted for in the new file.`;
+  if (repeatedTesting) {
+    analysis += ` <em>Note: ${uniqueFails} unique failures across ${fails.length} failed rows — some units appear to have been tested more than once.</em>`;
+  }
 
-  document.getElementById('summary-box').innerHTML = s;
+  if (missingPct > 20) {
+    analysis += ` <em>Coverage gap: ${missingCount} master circuits (${missingPct}%) were not tested — this may be an incomplete run covering only part of the installation.</em>`;
+  } else if (missingCount > 0) {
+    analysis += ` <em>${missingCount} master circuit${missingCount > 1 ? 's were' : ' was'} not present in the new file.</em>`;
+  }
+
+  document.getElementById('summary-box').innerHTML = analysis;
 }
 
 function renderUniqueFailures() {
