@@ -1,4 +1,4 @@
-const VERSION = 'v2.14.0';
+const VERSION = 'v2.15.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -474,19 +474,20 @@ function exportExcel(results, masterData, allHeaders) {
     typeof h === 'string' && h.toUpperCase().includes('TEST RESULT')
   );
 
+  const lightRed = { fill: { patternType: 'solid', fgColor: { rgb: 'FFCCCC' } } };
+
   sorted.forEach((r, i) => {
     const rowIdx = i + 1;
     const cellAddr = XLSX.utils.encode_cell({ r: rowIdx, c: 0 });
     if (!fullSheet[cellAddr]) return;
     fullSheet[cellAddr].s = r._status === 'FAIL'
-      ? { fill: { fgColor: { rgb: 'FFDDDD' } }, font: { bold: true, color: { rgb: 'CC0000' } } }
+      ? { fill: { patternType: 'solid', fgColor: { rgb: 'FFDDDD' } }, font: { bold: true, color: { rgb: 'CC0000' } } }
       : { font: { color: { rgb: '007744' } } };
 
     if (r._status === 'FAIL' && testResultColIdx !== -1) {
       const trAddr = XLSX.utils.encode_cell({ r: rowIdx, c: testResultColIdx });
-      if (fullSheet[trAddr]) {
-        fullSheet[trAddr].s = { fill: { fgColor: { rgb: 'FFDDDD' } }, font: { color: { rgb: 'CC0000' } } };
-      }
+      if (!fullSheet[trAddr]) fullSheet[trAddr] = { t: 's', v: '' };
+      fullSheet[trAddr].s = lightRed;
     }
   });
 
