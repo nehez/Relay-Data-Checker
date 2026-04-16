@@ -1,4 +1,4 @@
-const VERSION = 'v2.11.0';
+const VERSION = 'v2.12.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -67,7 +67,9 @@ async function loadMaster(file) {
     if (circuitCol === -1) {
       for (let c = 0; c < row1.length; c++) {
         if (row1[c] === 'CIRCUIT' || row1[c] === 'NOMENCLATURE') circuitCol = c;
-        if (row1[c] === 'SERIAL') serialCol = c;
+        if (row1[c].includes('SERIAL')) {
+          if (serialCol === -1 || row1[c] === 'SERIAL NUMBER') serialCol = c;
+        }
       }
     }
 
@@ -85,7 +87,11 @@ async function loadMaster(file) {
   const headerRow = raw[0].map(c => String(c).trim().toUpperCase());
   for (let c = 0; c < headerRow.length; c++) {
     if (headerRow[c].includes('CIRCUIT') || headerRow[c] === 'NOMENCLATURE') circuitCol = c;
-    if (headerRow[c].includes('SERIAL')) serialCol = c;
+    // Prefer exact 'SERIAL NUMBER' — prevents 'DEVICE SERIAL' or other
+    // columns that contain the word SERIAL from overriding the right column
+    if (headerRow[c].includes('SERIAL')) {
+      if (serialCol === -1 || headerRow[c] === 'SERIAL NUMBER') serialCol = c;
+    }
   }
 
   if (circuitCol === -1 || serialCol === -1) {
