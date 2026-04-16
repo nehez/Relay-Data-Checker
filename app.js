@@ -1,4 +1,4 @@
-const VERSION = 'v2.15.0';
+const VERSION = 'v2.16.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -456,80 +456,70 @@ function renderForTab(tabId) {
 }
 
 // ─── Excel Export ─────────────────────────────────────────────────
-function exportExcel(results, masterData, allHeaders) {
-  const wb = XLSX.utils.book_new();
+async function exportExcel(results, masterData, allHeaders) {
+  const wb = new ExcelJS.Workbook();
   const order = masterSortOrders();
   const sorted = sortByMaster(results, order);
   const sortedFails = sorted.filter(r => r._status === 'FAIL');
 
   const fullHeaders = ['Status', 'Issue', ...allHeaders];
-  const fullRows = sorted.map(r => {
-    const row = [r._status, r._issue];
-    allHeaders.forEach(h => row.push(r[h] ?? ''));
-    return row;
-  });
-  const fullSheet = XLSX.utils.aoa_to_sheet([fullHeaders, ...fullRows]);
 
-  const testResultColIdx = fullHeaders.findIndex(h =>
+  // ExcelJS columns are 1-based; +1 converts findIndex result
+  const trCol = fullHeaders.findIndex(h =>
     typeof h === 'string' && h.toUpperCase().includes('TEST RESULT')
-  );
+  ) + 1;
 
-  const lightRed = { fill: { patternType: 'solid', fgColor: { rgb: 'FFCCCC' } } };
+  const FAIL_FILL   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCCC' } };
+  const STATUS_FAIL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDDD' } };
 
-  sorted.forEach((r, i) => {
-    const rowIdx = i + 1;
-    const cellAddr = XLSX.utils.encode_cell({ r: rowIdx, c: 0 });
-    if (!fullSheet[cellAddr]) return;
-    fullSheet[cellAddr].s = r._status === 'FAIL'
-      ? { fill: { patternType: 'solid', fgColor: { rgb: 'FFDDDD' } }, font: { bold: true, color: { rgb: 'CC0000' } } }
-      : { font: { color: { rgb: '007744' } } };
-
-    if (r._status === 'FAIL' && testResultColIdx !== -1) {
-      const trAddr = XLSX.utils.encode_cell({ r: rowIdx, c: testResultColIdx });
-      if (!fullSheet[trAddr]) fullSheet[trAddr] = { t: 's', v: '' };
-      fullSheet[trAddr].s = lightRed;
-    }
-  });
-
-  XLSX.utils.book_append_sheet(wb, fullSheet, 'Full Data');
-
-  const failRows = sortedFails;
-  if (failRows.length) {
-    const excRows = failRows.map(r => {
-      const row = [r._status, r._issue];
-      allHeaders.forEach(h => row.push(r[h] ?? ''));
-      return row;
+  function addFullSheet(name, rows) {
+    const ws = wb.addWorksheet(name);
+    const hdr = ws.addRow(fullHeaders);
+    hdr.font = { bold: true };
+    rows.forEach(r => {
+      const rowData = [r._status, r._issue, ...allHeaders.map(h => r[h] ?? '')];
+      const row = ws.addRow(rowData);
+      const statusCell = row.getCell(1);
+      if (r._status === 'FAIL') {
+        statusCell.fill = STATUS_FAIL;
+        statusCell.font = { bold: true, color: { argb: 'CC0000' } };
+        if (trCol > 0) row.getCell(trCol).fill = FAIL_FILL;
+      } else {
+        statusCell.font = { color: { argb: '007744' } };
+      }
     });
-    const excSheet = XLSX.utils.aoa_to_sheet([fullHeaders, ...excRows]);
-    XLSX.utils.book_append_sheet(wb, excSheet, 'Failures');
   }
+
+  addFullSheet('Full Data', sorted);
+  if (sortedFails.length) addFullSheet('Failures', sortedFails);
 
   // Unique Failures sheet
   const seenU = new Map();
   sortedFails.forEach(r => {
     const key = `${r._circuitName}|||${r._serialNumber}|||${r._issue}`;
-    if (seenU.has(key)) { seenU.get(key).count++; }
-    else { seenU.set(key, { ...r, count: 1 }); }
+    if (seenU.has(key)) seenU.get(key).count++;
+    else seenU.set(key, { ...r, count: 1 });
   });
   const uniqueErrRows = [...seenU.values()];
   if (uniqueErrRows.length) {
+    const wsUE = wb.addWorksheet('Unique Failures');
+    wsUE.addRow(['Count', 'Status', 'Issue', 'Nomenclature', 'Serial Number', 'Report Number']).font = { bold: true };
     const getReport = r => r['Report Number'] || r['Report No'] || r['Report#'] || r['Report No.'] || '';
-    const ueData = uniqueErrRows.map(r => [r.count, r._status, r._issue, r._circuitName, r._serialNumber, getReport(r)]);
-    const ueSheet = XLSX.utils.aoa_to_sheet([['Count', 'Status', 'Issue', 'Nomenclature', 'Serial Number', 'Report Number'], ...ueData]);
-    XLSX.utils.book_append_sheet(wb, ueSheet, 'Unique Failures');
+    uniqueErrRows.forEach(r => wsUE.addRow([r.count, r._status, r._issue, r._circuitName, r._serialNumber, getReport(r)]));
   }
 
   const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
   const missing = masterData.filter(m => !newSerials.has(m.serialNumber.toUpperCase()));
   if (missing.length) {
-    const missingRows = missing.map(m => [m.circuitName, m.serialNumber]);
-    const missingSheet = XLSX.utils.aoa_to_sheet([['Circuit Name', 'Serial Number'], ...missingRows]);
-    XLSX.utils.book_append_sheet(wb, missingSheet, 'Missing From New File');
+    const wsMissing = wb.addWorksheet('Missing From New File');
+    wsMissing.addRow(['Circuit Name', 'Serial Number']).font = { bold: true };
+    missing.forEach(m => wsMissing.addRow([m.circuitName, m.serialNumber]));
   }
 
   const total = results.length;
   const fails = results.filter(r => r._status === 'FAIL').length;
-  const summaryData = [
+  const wsSummary = wb.addWorksheet('Summary');
+  [
     ['Relay Data Checker — Validation Report'],
     ['Generated', new Date().toLocaleString()],
     ['Version', VERSION],
@@ -539,11 +529,18 @@ function exportExcel(results, masterData, allHeaders) {
     ['Failed', fails],
     ['Match Rate', total ? `${Math.round(((total - fails) / total) * 100)}%` : 'N/A'],
     ['Master Serials Missing from New File', missing.length],
-  ];
-  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+  ].forEach(row => wsSummary.addRow(row));
 
-  XLSX.writeFile(wb, `relay-data-checker_validation_${new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-')}.xlsx`);
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `relay-data-checker_validation_${new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-')}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function exportCSV(results, masterData, allHeaders) {
@@ -756,8 +753,8 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
   document.getElementById('theme-toggle').textContent = isLight ? '☾ Dark Mode' : '☀ Light Mode';
 });
 
-document.getElementById('dl-excel').addEventListener('click', () => {
-  if (validationResults) exportExcel(validationResults, masterData, newData.headers);
+document.getElementById('dl-excel').addEventListener('click', async () => {
+  if (validationResults) await exportExcel(validationResults, masterData, newData.headers);
 });
 
 document.getElementById('dl-csv').addEventListener('click', () => {
