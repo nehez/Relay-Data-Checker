@@ -1,4 +1,4 @@
-const VERSION = 'v2.10.0';
+const VERSION = 'v2.11.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -289,6 +289,45 @@ function renderNotInMaster(master, newResults) {
     </div>`;
 }
 
+function renderSummary(results, master) {
+  const total   = results.length;
+  const fails   = results.filter(r => r._status === 'FAIL');
+  const passes  = total - fails.length;
+  const pct     = total ? Math.round((passes / total) * 100) : 0;
+
+  const issueCounts = {};
+  fails.forEach(r => { issueCounts[r._issue] = (issueCounts[r._issue] || 0) + 1; });
+  const topIssues = Object.entries(issueCounts).sort((a, b) => b[1] - a[1]);
+
+  const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
+  const missingCount = master.filter(m => !newSerials.has(m.serialNumber.toUpperCase())).length;
+
+  let s = `Validated <strong>${total.toLocaleString()}</strong> relays from the new file. `;
+
+  if (fails.length === 0) {
+    s += `<strong>All relays passed</strong> — every circuit name and serial number matched the master.`;
+  } else {
+    s += `<strong>${fails.length.toLocaleString()}</strong> failed (${100 - pct}% failure rate). `;
+    if (topIssues.length > 0) {
+      const top = topIssues[0];
+      s += `Most common issue: <em>${top[0]}</em> — ${top[1]} ${top[1] === 1 ? 'relay' : 'relays'}`;
+      if (topIssues.length > 1) {
+        s += `; <em>${topIssues[1][0]}</em> — ${topIssues[1][1]}`;
+      }
+      if (topIssues.length > 2) {
+        s += `; and ${topIssues.length - 2} other issue type${topIssues.length - 2 > 1 ? 's' : ''}`;
+      }
+      s += `. `;
+    }
+  }
+
+  s += missingCount > 0
+    ? `<strong>${missingCount}</strong> master circuit${missingCount > 1 ? 's were' : ' was'} not found in the new file at all.`
+    : `All master circuits are accounted for in the new file.`;
+
+  document.getElementById('summary-box').innerHTML = s;
+}
+
 function renderUniqueFailures() {
   const container = document.getElementById('tab-uniqueerrors');
   const desc = '<p class="tab-info">Each unique failing relay shown once — deduplicated by Nomenclature + Serial Number + Issue. The Count column shows how many test rows had that exact failure. Use this to get a clean list of distinct problems without repeat noise.</p>';
@@ -312,6 +351,7 @@ function renderUniqueFailures() {
   });
 
   const unique = sortByMaster([...seen.values()], order);
+  const totalCount = unique.reduce((sum, r) => sum + r.count, 0);
 
   const thead = '<tr><th>Count</th><th>Status</th><th>Issue</th><th>Nomenclature</th><th>Serial Number</th><th>Report Number</th></tr>';
   const tbody = unique.map(r => {
@@ -327,7 +367,8 @@ function renderUniqueFailures() {
     </tr>`;
   }).join('');
 
-  container.innerHTML = desc + `<div class="table-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
+  const tfoot = `<tfoot><tr><td><strong>${totalCount}</strong></td><td colspan="5">total failure instances — matches the Mismatches count above</td></tr></tfoot>`;
+  container.innerHTML = desc + `<div class="table-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody>${tfoot}</table></div>`;
 }
 
 function masterSortOrders() {
@@ -615,6 +656,7 @@ document.getElementById('run-btn').addEventListener('click', async () => {
 
     renderedTabs = new Set();
     renderStats(validationResults);
+    renderSummary(validationResults, masterData);
 
     // Reset to first tab and set loading placeholders in all panels
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));

@@ -276,6 +276,33 @@ body.light {
   --text-dim: #374151;
 }
 
+/* ── Conversational summary ────────────────────────────────────── */
+.summary-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+
+.summary-box strong { color: var(--text); }
+.summary-box em { color: var(--text); font-style: normal; font-weight: 600; }
+
+/* ── Table total footer row ────────────────────────────────────── */
+tfoot td {
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  border-top: 2px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+}
+
+tfoot td strong { color: var(--text); font-size: 13px; }
+
 /* ── Tab buttons ───────────────────────────────────────────────── */
 .tabs {
   display: flex;
