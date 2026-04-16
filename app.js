@@ -1,4 +1,4 @@
-const VERSION = 'v2.13.0';
+const VERSION = 'v2.14.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -470,6 +470,10 @@ function exportExcel(results, masterData, allHeaders) {
   });
   const fullSheet = XLSX.utils.aoa_to_sheet([fullHeaders, ...fullRows]);
 
+  const testResultColIdx = fullHeaders.findIndex(h =>
+    typeof h === 'string' && h.toUpperCase().includes('TEST RESULT')
+  );
+
   sorted.forEach((r, i) => {
     const rowIdx = i + 1;
     const cellAddr = XLSX.utils.encode_cell({ r: rowIdx, c: 0 });
@@ -477,6 +481,13 @@ function exportExcel(results, masterData, allHeaders) {
     fullSheet[cellAddr].s = r._status === 'FAIL'
       ? { fill: { fgColor: { rgb: 'FFDDDD' } }, font: { bold: true, color: { rgb: 'CC0000' } } }
       : { font: { color: { rgb: '007744' } } };
+
+    if (r._status === 'FAIL' && testResultColIdx !== -1) {
+      const trAddr = XLSX.utils.encode_cell({ r: rowIdx, c: testResultColIdx });
+      if (fullSheet[trAddr]) {
+        fullSheet[trAddr].s = { fill: { fgColor: { rgb: 'FFDDDD' } }, font: { color: { rgb: 'CC0000' } } };
+      }
+    }
   });
 
   XLSX.utils.book_append_sheet(wb, fullSheet, 'Full Data');
