@@ -1,4 +1,4 @@
-const VERSION = 'v2.18.0';
+const VERSION = 'v2.19.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -792,3 +792,226 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   document.getElementById('stats-row').innerHTML = '';
   document.getElementById('summary-box').innerHTML = '';
 });
+
+// ─── Rail Scene Animation ──────────────────────────────────────────
+(function () {
+  const canvas = document.getElementById('rail-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Layout constants
+  const H = 96, TRACK_Y = 66;
+  const TW = 158, TH = 36, TY = TRACK_Y - TH;
+  const MAX_V = 2.5, STOP_GAP = 52;
+
+  // Three signals at fixed fractional positions along the track
+  const signals = [
+    { frac: 0.18, state: 'lunar', timer: rnd() },
+    { frac: 0.50, state: 'red',   timer: rnd() + 80 },
+    { frac: 0.80, state: 'lunar', timer: rnd() + 160 },
+  ];
+
+  function rnd() { return 210 + Math.random() * 420; } // ~3.5–10.5 s at 60 fps
+
+  let tx = -TW - 20, tv = MAX_V;
+
+  // ── Physics update ─────────────────────────────────────────────
+  function update() {
+    signals.forEach(s => { if (--s.timer <= 0) { s.state = s.state === 'red' ? 'lunar' : 'red'; s.timer = rnd(); } });
+
+    const W = canvas.width;
+    const frontX = tx + TW;
+    const nextRed = signals
+      .filter(s => s.state === 'red' && s.frac * W > frontX + STOP_GAP)
+      .sort((a, b) => a.frac - b.frac)[0];
+
+    if (nextRed) {
+      const stopAt = nextRed.frac * W - STOP_GAP;
+      if (frontX + 180 > stopAt) tv = Math.max(0, tv - 0.09);
+      if (frontX >= stopAt) { tv = 0; tx = stopAt - TW; }
+    } else {
+      tv = Math.min(MAX_V, tv + 0.055);
+    }
+
+    tx += tv;
+    if (tx > W + 40) { tx = -TW - 20; tv = MAX_V; }
+  }
+
+  // ── Rounded-rect path helper ───────────────────────────────────
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+
+  // ── Draw ───────────────────────────────────────────────────────
+  function draw() {
+    const W = canvas.width;
+    const now = Date.now();
+
+    // Sky
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#060d18');
+    sky.addColorStop(1, '#0d1929');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars — sparse, fixed positions derived from width
+    ctx.fillStyle = 'rgba(200,220,255,0.55)';
+    for (let i = 0; i < 28; i++) {
+      const sx = ((i * 137.5) % 1) * W; // golden-ratio spread
+      const sy = ((i * 79.3)  % 1) * (TRACK_Y - TH - 14);
+      const r  = i % 4 === 0 ? 1.2 : 0.7;
+      ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Ground strip
+    ctx.fillStyle = '#07101c';
+    ctx.fillRect(0, TRACK_Y + 9, W, H - TRACK_Y - 9);
+
+    // Ballast texture (subtle dots)
+    ctx.fillStyle = 'rgba(30,50,70,0.5)';
+    for (let x = 5; x < W; x += 18) ctx.fillRect(x, TRACK_Y + 10, 3, 2);
+
+    // Ties
+    ctx.fillStyle = '#182030';
+    for (let x = 0; x < W; x += 22) ctx.fillRect(x, TRACK_Y - 1, 14, 9);
+
+    // Rails (two shiny lines)
+    const rg = ctx.createLinearGradient(0, TRACK_Y, 0, TRACK_Y + 3);
+    rg.addColorStop(0, '#9ab0c4'); rg.addColorStop(1, '#4a6070');
+    ctx.fillStyle = rg;
+    ctx.fillRect(0, TRACK_Y, W, 3);
+    ctx.fillRect(0, TRACK_Y + 6, W, 3);
+
+    // ── Signals ──────────────────────────────────────────────────
+    const msHalf = 545; // 55 flashes/min → 1091 ms period
+    const lunarOn = Math.floor(now / msHalf) % 2 === 0;
+
+    signals.forEach(s => {
+      const sx  = Math.round(s.frac * W);
+      const top = TRACK_Y - 44;
+
+      // Mast
+      ctx.strokeStyle = '#2e3d4e'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(sx, TRACK_Y); ctx.lineTo(sx, top + 2); ctx.stroke();
+
+      // Base plate
+      ctx.fillStyle = '#1e2c3c';
+      ctx.fillRect(sx - 6, TRACK_Y - 2, 12, 4);
+
+      // Housing box
+      ctx.fillStyle = '#111c2a'; ctx.strokeStyle = '#1e2e40'; ctx.lineWidth = 1;
+      rr(sx - 6, top, 12, 22, 2); ctx.fill(); ctx.stroke();
+
+      // Top light (active)
+      const ly1 = top + 6;
+      if (s.state === 'lunar') {
+        const alpha = lunarOn ? 1 : 0.06;
+        // Glow halo (only when on)
+        if (lunarOn) {
+          ctx.beginPath(); ctx.arc(sx, ly1, 9, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(170, 210, 255, 0.12)'; ctx.fill();
+        }
+        ctx.beginPath(); ctx.arc(sx, ly1, 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(215, 235, 255, ${alpha})`; ctx.fill();
+      } else {
+        // Red glow
+        ctx.beginPath(); ctx.arc(sx, ly1, 9, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 35, 35, 0.13)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(sx, ly1, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff2020'; ctx.fill();
+      }
+
+      // Bottom light (always dark/unlit)
+      ctx.beginPath(); ctx.arc(sx, top + 16, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#050a10'; ctx.fill();
+    });
+
+    // ── Train ─────────────────────────────────────────────────────
+    const x = Math.round(tx);
+    const y = TY;
+
+    // Body
+    const tbg = ctx.createLinearGradient(x, y, x, y + TH);
+    tbg.addColorStop(0, '#cad8e4');
+    tbg.addColorStop(0.38, '#b2c2d0');
+    tbg.addColorStop(1, '#8295a5');
+    ctx.fillStyle = tbg; rr(x, y, TW, TH, 4); ctx.fill();
+
+    // Subtle body shadow on sides
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1;
+    rr(x, y, TW, TH, 4); ctx.stroke();
+
+    // RTA red stripe
+    ctx.fillStyle = '#c8102e';
+    ctx.fillRect(x, y + Math.round(TH * 0.60), TW, 5);
+
+    // Roof highlight
+    const shine = ctx.createLinearGradient(x, y, x, y + 8);
+    shine.addColorStop(0, 'rgba(255,255,255,0.38)');
+    shine.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = shine;
+    ctx.fillRect(x + 4, y, TW - 8, 8);
+
+    // Windows
+    ctx.fillStyle = 'rgba(10, 28, 58, 0.9)';
+    const winW = 17, winH = 11, winTop = y + 5;
+    for (let i = 0; 8 + i * 23 + winW <= TW - 6; i++) {
+      rr(x + 8 + i * 23, winTop, winW, winH, 2); ctx.fill();
+      // Window reflection glint
+      ctx.fillStyle = 'rgba(100,160,220,0.1)';
+      ctx.fillRect(x + 9 + i * 23, winTop + 1, 5, 3);
+      ctx.fillStyle = 'rgba(10, 28, 58, 0.9)';
+    }
+
+    // Lower skirt shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(x, y + TH - 6, TW, 6);
+
+    // Bogies
+    ctx.fillStyle = '#121b26';
+    rr(x + 8, y + TH, 33, 6, 2); ctx.fill();
+    rr(x + TW - 41, y + TH, 33, 6, 2); ctx.fill();
+
+    // Wheels (4)
+    [[x + 18], [x + 33], [x + TW - 33], [x + TW - 18]].forEach(([wx]) => {
+      const wy = y + TH + 9;
+      ctx.beginPath(); ctx.arc(wx, wy, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#121b26'; ctx.fill();
+      ctx.strokeStyle = '#384858'; ctx.lineWidth = 1.2; ctx.stroke();
+      // Hub
+      ctx.beginPath(); ctx.arc(wx, wy, 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#485868'; ctx.fill();
+    });
+
+    // Pantograph
+    const px = x + Math.round(TW * 0.42);
+    ctx.strokeStyle = '#5a6e82'; ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px - 8, y - 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px + 8, y - 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px - 11, y - 8); ctx.lineTo(px + 11, y - 8); ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+
+  // ── Main loop ──────────────────────────────────────────────────
+  let lastW = 0;
+  function frame() {
+    const newW = canvas.offsetWidth;
+    if (newW && newW !== lastW) { canvas.width = newW; canvas.height = H; lastW = newW; }
+    update();
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+}());

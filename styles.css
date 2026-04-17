@@ -549,3 +549,14 @@ td.highlight-ok {
   .upload-grid { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ── Rail scene ──────────────────────────────────────────────────── */
+.rail-scene-wrap {
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+}
+
+#rail-canvas {
+  width: 100%;
+  display: block;
+}
