@@ -1,4 +1,4 @@
-const VERSION = 'v2.19.0';
+const VERSION = 'v2.20.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -793,225 +793,237 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   document.getElementById('summary-box').innerHTML = '';
 });
 
-// ─── Rail Scene Animation ──────────────────────────────────────────
+
+// ─── Border Rail Scene Animation ──────────────────────────────────
 (function () {
   const canvas = document.getElementById('rail-canvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
 
-  // Layout constants
-  const H = 96, TRACK_Y = 66;
-  const TW = 158, TH = 36, TY = TRACK_Y - TH;
-  const MAX_V = 2.5, STOP_GAP = 52;
+  const PAD  = 14;   // px from viewport edge to track centre
+  const GAP  = 8;    // gap between the two rails
+  const TL   = 68;   // train length (along track)
+  const TW   = 22;   // train width (perpendicular to track)
+  const MAX_V      = 3.2;
+  const BRAKE_DIST = 190;
+  const STOP_GAP   = 55;
 
-  // Three signals at fixed fractional positions along the track
+  // 4 signals evenly spread around the perimeter
   const signals = [
-    { frac: 0.18, state: 'lunar', timer: rnd() },
-    { frac: 0.50, state: 'red',   timer: rnd() + 80 },
-    { frac: 0.80, state: 'lunar', timer: rnd() + 160 },
+    { frac: 0.10, state: 'lunar', timer: rnd() },
+    { frac: 0.35, state: 'red',   timer: rnd() + 70 },
+    { frac: 0.60, state: 'lunar', timer: rnd() + 140 },
+    { frac: 0.85, state: 'red',   timer: rnd() + 30 },
   ];
 
-  function rnd() { return 210 + Math.random() * 420; } // ~3.5–10.5 s at 60 fps
+  function rnd() { return 220 + Math.random() * 430; }
 
-  let tx = -TW - 20, tv = MAX_V;
+  let trainFrac = 0, trainV = MAX_V;
 
-  // ── Physics update ─────────────────────────────────────────────
-  function update() {
-    signals.forEach(s => { if (--s.timer <= 0) { s.state = s.state === 'red' ? 'lunar' : 'red'; s.timer = rnd(); } });
-
-    const W = canvas.width;
-    const frontX = tx + TW;
-    const nextRed = signals
-      .filter(s => s.state === 'red' && s.frac * W > frontX + STOP_GAP)
-      .sort((a, b) => a.frac - b.frac)[0];
-
-    if (nextRed) {
-      const stopAt = nextRed.frac * W - STOP_GAP;
-      if (frontX + 180 > stopAt) tv = Math.max(0, tv - 0.09);
-      if (frontX >= stopAt) { tv = 0; tx = stopAt - TW; }
-    } else {
-      tv = Math.min(MAX_V, tv + 0.055);
-    }
-
-    tx += tv;
-    if (tx > W + 40) { tx = -TW - 20; tv = MAX_V; }
+  // ── Geometry helpers ───────────────────────────────────────────
+  function perim() {
+    return 2 * (canvas.width - 2 * PAD + canvas.height - 2 * PAD);
   }
 
-  // ── Rounded-rect path helper ───────────────────────────────────
+  function wrap(t) { return ((t % 1) + 1) % 1; }
+
+  // Forward pixel distance from fraction a to fraction b
+  function fwdDist(a, b) {
+    let d = b - a;
+    if (d < 0) d += 1;
+    return d * perim();
+  }
+
+  // x, y, angle (radians) at fraction t around the rectangle
+  function trackPoint(t) {
+    const W = canvas.width, H = canvas.height;
+    const w = W - 2 * PAD, h = H - 2 * PAD;
+    const p = perim();
+    const d = wrap(t) * p;
+    if (d < w)         return { x: PAD + d,           y: PAD,           angle: 0 };
+    if (d < w + h)     return { x: PAD + w,            y: PAD + (d-w),   angle: Math.PI / 2 };
+    if (d < 2*w + h)   return { x: PAD + w - (d-w-h), y: PAD + h,       angle: Math.PI };
+                       return { x: PAD,                y: PAD+h-(d-2*w-h), angle: -Math.PI / 2 };
+  }
+
+  // ── Update ─────────────────────────────────────────────────────
+  function update() {
+    signals.forEach(s => {
+      if (--s.timer <= 0) {
+        s.state = s.state === 'red' ? 'lunar' : 'red';
+        s.timer = rnd();
+      }
+    });
+
+    const nextRed = signals
+      .filter(s => s.state === 'red')
+      .map(s => ({ s, d: fwdDist(trainFrac, s.frac) }))
+      .filter(({ d }) => d > 8 && d < BRAKE_DIST + 100)
+      .sort((a, b) => a.d - b.d)[0];
+
+    if (nextRed) {
+      const d = nextRed.d;
+      if (d < BRAKE_DIST) trainV = Math.max(0, trainV - 0.09);
+      if (d <= STOP_GAP)  trainV = 0;
+    } else {
+      trainV = Math.min(MAX_V, trainV + 0.055);
+    }
+
+    trainFrac = wrap(trainFrac + trainV / perim());
+  }
+
+  // ── Rounded-rect path (no native roundRect dependency) ─────────
   function rr(x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
     ctx.lineTo(x + w - r, y);
-    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.arcTo(x + w, y,   x + w, y + r,   r);
     ctx.lineTo(x + w, y + h - r);
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.arcTo(x + w, y+h, x+w-r, y + h,   r);
     ctx.lineTo(x + r, y + h);
-    ctx.arcTo(x, y + h, x, y + h - r, r);
-    ctx.lineTo(x, y + r);
-    ctx.arcTo(x, y, x + r, y, r);
+    ctx.arcTo(x,   y+h, x,   y+h-r,       r);
+    ctx.lineTo(x,   y + r);
+    ctx.arcTo(x,   y,   x+r, y,            r);
     ctx.closePath();
   }
 
-  // ── Draw ───────────────────────────────────────────────────────
-  function draw() {
-    const W = canvas.width;
-    const now = Date.now();
+  // ── Draw track ─────────────────────────────────────────────────
+  function drawTrack() {
+    const W = canvas.width, H = canvas.height;
+    const p = perim();
+    const tieStep = 22;
 
-    // Sky
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#060d18');
-    sky.addColorStop(1, '#0d1929');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
-
-    // Stars — sparse, fixed positions derived from width
-    ctx.fillStyle = 'rgba(200,220,255,0.55)';
-    for (let i = 0; i < 28; i++) {
-      const sx = ((i * 137.5) % 1) * W; // golden-ratio spread
-      const sy = ((i * 79.3)  % 1) * (TRACK_Y - TH - 14);
-      const r  = i % 4 === 0 ? 1.2 : 0.7;
-      ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+    // Ties (short perpendicular rectangles)
+    ctx.fillStyle = 'rgba(20,35,55,0.85)';
+    for (let d = 0; d < p; d += tieStep) {
+      const pt = trackPoint(d / p);
+      ctx.save();
+      ctx.translate(pt.x, pt.y);
+      ctx.rotate(pt.angle);
+      ctx.fillRect(-GAP * 1.6, -2, GAP * 3.2, 4);
+      ctx.restore();
     }
 
-    // Ground strip
-    ctx.fillStyle = '#07101c';
-    ctx.fillRect(0, TRACK_Y + 9, W, H - TRACK_Y - 9);
+    // Two rails (inner & outer rectangles)
+    for (const offset of [-GAP / 2, GAP / 2]) {
+      const r = PAD + offset;
+      ctx.strokeStyle = offset < 0 ? 'rgba(155,180,200,0.75)' : 'rgba(100,130,155,0.65)';
+      ctx.lineWidth = 2.2;
+      ctx.strokeRect(r, r, W - 2 * r, H - 2 * r);
+    }
+  }
 
-    // Ballast texture (subtle dots)
-    ctx.fillStyle = 'rgba(30,50,70,0.5)';
-    for (let x = 5; x < W; x += 18) ctx.fillRect(x, TRACK_Y + 10, 3, 2);
+  // ── Draw one signal ────────────────────────────────────────────
+  function drawSignal(s) {
+    const pt = trackPoint(s.frac);
+    // Inward perpendicular (right-hand side of direction of travel = toward page centre)
+    const ipx = -Math.sin(pt.angle);
+    const ipy =  Math.cos(pt.angle);
 
-    // Ties
-    ctx.fillStyle = '#182030';
-    for (let x = 0; x < W; x += 22) ctx.fillRect(x, TRACK_Y - 1, 14, 9);
+    const base = { x: pt.x + ipx * (GAP + 4),  y: pt.y + ipy * (GAP + 4) };
+    const tip  = { x: pt.x + ipx * (GAP + 22), y: pt.y + ipy * (GAP + 22) };
 
-    // Rails (two shiny lines)
-    const rg = ctx.createLinearGradient(0, TRACK_Y, 0, TRACK_Y + 3);
-    rg.addColorStop(0, '#9ab0c4'); rg.addColorStop(1, '#4a6070');
-    ctx.fillStyle = rg;
-    ctx.fillRect(0, TRACK_Y, W, 3);
-    ctx.fillRect(0, TRACK_Y + 6, W, 3);
+    // Mast
+    ctx.strokeStyle = 'rgba(50,70,90,0.9)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
 
-    // ── Signals ──────────────────────────────────────────────────
-    const msHalf = 545; // 55 flashes/min → 1091 ms period
-    const lunarOn = Math.floor(now / msHalf) % 2 === 0;
+    const now = Date.now();
+    const lunarOn = Math.floor(now / 545) % 2 === 0; // 55 flashes/min
 
-    signals.forEach(s => {
-      const sx  = Math.round(s.frac * W);
-      const top = TRACK_Y - 44;
-
-      // Mast
-      ctx.strokeStyle = '#2e3d4e'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(sx, TRACK_Y); ctx.lineTo(sx, top + 2); ctx.stroke();
-
-      // Base plate
-      ctx.fillStyle = '#1e2c3c';
-      ctx.fillRect(sx - 6, TRACK_Y - 2, 12, 4);
-
-      // Housing box
-      ctx.fillStyle = '#111c2a'; ctx.strokeStyle = '#1e2e40'; ctx.lineWidth = 1;
-      rr(sx - 6, top, 12, 22, 2); ctx.fill(); ctx.stroke();
-
-      // Top light (active)
-      const ly1 = top + 6;
-      if (s.state === 'lunar') {
-        const alpha = lunarOn ? 1 : 0.06;
-        // Glow halo (only when on)
-        if (lunarOn) {
-          ctx.beginPath(); ctx.arc(sx, ly1, 9, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(170, 210, 255, 0.12)'; ctx.fill();
-        }
-        ctx.beginPath(); ctx.arc(sx, ly1, 4, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(215, 235, 255, ${alpha})`; ctx.fill();
+    if (s.state === 'lunar') {
+      if (lunarOn) {
+        // Outer glow
+        ctx.beginPath(); ctx.arc(tip.x, tip.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(180,215,255,0.15)'; ctx.fill();
+        // Light
+        ctx.beginPath(); ctx.arc(tip.x, tip.y, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(220,238,255,0.95)'; ctx.fill();
       } else {
-        // Red glow
-        ctx.beginPath(); ctx.arc(sx, ly1, 9, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 35, 35, 0.13)'; ctx.fill();
-        ctx.beginPath(); ctx.arc(sx, ly1, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#ff2020'; ctx.fill();
+        ctx.beginPath(); ctx.arc(tip.x, tip.y, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(220,238,255,0.06)'; ctx.fill();
       }
+    } else {
+      // Red glow
+      ctx.beginPath(); ctx.arc(tip.x, tip.y, 9, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,30,30,0.12)'; ctx.fill();
+      // Red light
+      ctx.beginPath(); ctx.arc(tip.x, tip.y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff2020'; ctx.fill();
+    }
+  }
 
-      // Bottom light (always dark/unlit)
-      ctx.beginPath(); ctx.arc(sx, top + 16, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#050a10'; ctx.fill();
-    });
+  // ── Draw train ─────────────────────────────────────────────────
+  function drawTrain() {
+    const pt = trackPoint(trainFrac);
+    ctx.save();
+    ctx.translate(pt.x, pt.y);
+    ctx.rotate(pt.angle);
 
-    // ── Train ─────────────────────────────────────────────────────
-    const x = Math.round(tx);
-    const y = TY;
+    // Body centred on track point, oriented along angle
+    const bx = -TL / 2, by = -TW / 2;
 
-    // Body
-    const tbg = ctx.createLinearGradient(x, y, x, y + TH);
-    tbg.addColorStop(0, '#cad8e4');
-    tbg.addColorStop(0.38, '#b2c2d0');
-    tbg.addColorStop(1, '#8295a5');
-    ctx.fillStyle = tbg; rr(x, y, TW, TH, 4); ctx.fill();
+    // Shadow / depth
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    rr(bx + 2, by + 2, TL, TW, 3); ctx.fill();
 
-    // Subtle body shadow on sides
-    ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1;
-    rr(x, y, TW, TH, 4); ctx.stroke();
+    // Body gradient (silver)
+    const g = ctx.createLinearGradient(bx, by, bx, by + TW);
+    g.addColorStop(0,   '#ccd8e4');
+    g.addColorStop(0.4, '#b0c2d0');
+    g.addColorStop(1,   '#808fa0');
+    ctx.fillStyle = g; rr(bx, by, TL, TW, 3); ctx.fill();
 
     // RTA red stripe
     ctx.fillStyle = '#c8102e';
-    ctx.fillRect(x, y + Math.round(TH * 0.60), TW, 5);
+    ctx.fillRect(bx, by + Math.round(TW * 0.60), TL, 4);
 
-    // Roof highlight
-    const shine = ctx.createLinearGradient(x, y, x, y + 8);
-    shine.addColorStop(0, 'rgba(255,255,255,0.38)');
+    // Roof shine
+    const shine = ctx.createLinearGradient(bx, by, bx, by + TW * 0.35);
+    shine.addColorStop(0, 'rgba(255,255,255,0.35)');
     shine.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = shine;
-    ctx.fillRect(x + 4, y, TW - 8, 8);
+    ctx.fillStyle = shine; ctx.fillRect(bx + 3, by, TL - 6, TW * 0.35);
 
     // Windows
-    ctx.fillStyle = 'rgba(10, 28, 58, 0.9)';
-    const winW = 17, winH = 11, winTop = y + 5;
-    for (let i = 0; 8 + i * 23 + winW <= TW - 6; i++) {
-      rr(x + 8 + i * 23, winTop, winW, winH, 2); ctx.fill();
-      // Window reflection glint
-      ctx.fillStyle = 'rgba(100,160,220,0.1)';
-      ctx.fillRect(x + 9 + i * 23, winTop + 1, 5, 3);
-      ctx.fillStyle = 'rgba(10, 28, 58, 0.9)';
+    ctx.fillStyle = 'rgba(10,28,58,0.9)';
+    for (let i = 0; 5 + i * 11 + 8 <= TL - 5; i++) {
+      rr(bx + 5 + i * 11, by + 3, 8, 6, 1); ctx.fill();
     }
 
-    // Lower skirt shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    ctx.fillRect(x, y + TH - 6, TW, 6);
-
     // Bogies
-    ctx.fillStyle = '#121b26';
-    rr(x + 8, y + TH, 33, 6, 2); ctx.fill();
-    rr(x + TW - 41, y + TH, 33, 6, 2); ctx.fill();
+    ctx.fillStyle = '#111a24';
+    rr(bx + 5,      by + TW, 22, 4, 1); ctx.fill();
+    rr(bx + TL - 27, by + TW, 22, 4, 1); ctx.fill();
 
-    // Wheels (4)
-    [[x + 18], [x + 33], [x + TW - 33], [x + TW - 18]].forEach(([wx]) => {
-      const wy = y + TH + 9;
-      ctx.beginPath(); ctx.arc(wx, wy, 6, 0, Math.PI * 2);
-      ctx.fillStyle = '#121b26'; ctx.fill();
-      ctx.strokeStyle = '#384858'; ctx.lineWidth = 1.2; ctx.stroke();
-      // Hub
-      ctx.beginPath(); ctx.arc(wx, wy, 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = '#485868'; ctx.fill();
+    // Wheels
+    [[bx + 12], [bx + 22], [bx + TL - 22], [bx + TL - 12]].forEach(([wx]) => {
+      const wy = by + TW + 6;
+      ctx.beginPath(); ctx.arc(wx, wy, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#111a24'; ctx.fill();
+      ctx.strokeStyle = '#334455'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath(); ctx.arc(wx, wy, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#445566'; ctx.fill();
     });
 
-    // Pantograph
-    const px = x + Math.round(TW * 0.42);
-    ctx.strokeStyle = '#5a6e82'; ctx.lineWidth = 1.5;
-    ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px - 8, y - 8); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px + 8, y - 8); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(px - 11, y - 8); ctx.lineTo(px + 11, y - 8); ctx.stroke();
-    ctx.lineCap = 'butt';
+    ctx.restore();
   }
 
-  // ── Main loop ──────────────────────────────────────────────────
-  let lastW = 0;
-  function frame() {
-    const newW = canvas.offsetWidth;
-    if (newW && newW !== lastW) { canvas.width = newW; canvas.height = H; lastW = newW; }
-    update();
-    draw();
-    requestAnimationFrame(frame);
+  // ── Draw frame ─────────────────────────────────────────────────
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawTrack();
+    signals.forEach(drawSignal);
+    drawTrain();
   }
 
+  // ── Resize & loop ──────────────────────────────────────────────
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  function frame() { update(); draw(); requestAnimationFrame(frame); }
   requestAnimationFrame(frame);
 }());
