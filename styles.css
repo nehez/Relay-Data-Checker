@@ -172,6 +172,26 @@ h1 {
   transform: none;
 }
 
+.reset-btn {
+  background: var(--surface2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 24px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+.reset-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 /* Results */
 .results-panel {
   display: none;

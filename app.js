@@ -1,4 +1,4 @@
-const VERSION = 'v2.17.0';
+const VERSION = 'v2.18.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -469,23 +469,27 @@ async function exportExcel(results, masterData, allHeaders) {
     typeof h === 'string' && h.toUpperCase().includes('TEST RESULT')
   ) + 1;
 
-  const FAIL_FILL   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCCC' } };
-  const STATUS_FAIL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDDD' } };
+  const FILL_RED   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDDD' } };
+  const FILL_GREEN = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'DDFFDD' } };
+  const FONT_RED   = { bold: true, color: { argb: 'CC0000' } };
+  const FONT_GREEN = { color: { argb: '007744' } };
 
   function addFullSheet(name, rows) {
     const ws = wb.addWorksheet(name);
-    const hdr = ws.addRow(fullHeaders);
-    hdr.font = { bold: true };
+    ws.addRow(fullHeaders).font = { bold: true };
     rows.forEach(r => {
       const rowData = [r._status, r._issue, ...allHeaders.map(h => r[h] ?? '')];
       const row = ws.addRow(rowData);
+      const isFail = r._status === 'FAIL';
+      const fill = isFail ? FILL_RED : FILL_GREEN;
+      const font = isFail ? FONT_RED : FONT_GREEN;
       const statusCell = row.getCell(1);
-      if (r._status === 'FAIL') {
-        statusCell.fill = STATUS_FAIL;
-        statusCell.font = { bold: true, color: { argb: 'CC0000' } };
-        if (trCol > 0) row.getCell(trCol).fill = FAIL_FILL;
-      } else {
-        statusCell.font = { color: { argb: '007744' } };
+      statusCell.fill = fill;
+      statusCell.font = font;
+      if (trCol > 0) {
+        const trCell = row.getCell(trCol);
+        trCell.fill = fill;
+        trCell.font = font;
       }
     });
   }
@@ -762,4 +766,29 @@ document.getElementById('dl-excel').addEventListener('click', async () => {
 
 document.getElementById('dl-csv').addEventListener('click', () => {
   if (validationResults) exportCSV(validationResults, masterData, newData.headers);
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  masterData = null;
+  newData = null;
+  validationResults = null;
+  renderedTabs = new Set();
+
+  ['master', 'new'].forEach(side => {
+    document.getElementById(`status-${side}`).textContent = 'No file loaded';
+    document.getElementById(`status-${side}`).className = 'zone-status';
+    document.getElementById(`zone-${side}`).classList.remove('loaded');
+    document.getElementById(`file-${side}`).value = '';
+  });
+
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('results-panel').classList.remove('visible');
+  document.getElementById('export-row').style.display = 'none';
+  document.getElementById('progress-bar').classList.remove('visible');
+  showError('');
+  ['exceptions','uniqueerrors','notinmaster','fulldata'].forEach(id => {
+    document.getElementById(`tab-${id}`).innerHTML = '';
+  });
+  document.getElementById('stats-row').innerHTML = '';
+  document.getElementById('summary-box').innerHTML = '';
 });
