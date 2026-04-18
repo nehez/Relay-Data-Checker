@@ -1,4 +1,4 @@
-const VERSION = 'v2.20.0';
+const VERSION = 'v2.21.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -477,19 +477,22 @@ async function exportExcel(results, masterData, allHeaders) {
   function addFullSheet(name, rows) {
     const ws = wb.addWorksheet(name);
     ws.addRow(fullHeaders).font = { bold: true };
+    const trHeaderName = trCol > 0 ? fullHeaders[trCol - 1] : null;
     rows.forEach(r => {
       const rowData = [r._status, r._issue, ...allHeaders.map(h => r[h] ?? '')];
       const row = ws.addRow(rowData);
       const isFail = r._status === 'FAIL';
-      const fill = isFail ? FILL_RED : FILL_GREEN;
-      const font = isFail ? FONT_RED : FONT_GREEN;
       const statusCell = row.getCell(1);
-      statusCell.fill = fill;
-      statusCell.font = font;
-      if (trCol > 0) {
+      statusCell.fill = isFail ? FILL_RED : FILL_GREEN;
+      statusCell.font = isFail ? FONT_RED : FONT_GREEN;
+      if (trHeaderName) {
         const trCell = row.getCell(trCol);
-        trCell.fill = fill;
-        trCell.font = font;
+        const trVal = String(r[trHeaderName] ?? '').toUpperCase().trim();
+        if (trVal.includes('FAIL')) {
+          trCell.fill = FILL_RED; trCell.font = FONT_RED;
+        } else if (trVal.includes('PASS')) {
+          trCell.fill = FILL_GREEN; trCell.font = FONT_GREEN;
+        }
       }
     });
   }
@@ -791,8 +794,6 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   });
   document.getElementById('stats-row').innerHTML = '';
   document.getElementById('summary-box').innerHTML = '';
-});
-
 
 // ─── Border Rail Scene Animation ──────────────────────────────────
 (function () {
@@ -800,15 +801,14 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
 
-  const PAD  = 14;   // px from viewport edge to track centre
-  const GAP  = 8;    // gap between the two rails
-  const TL   = 68;   // train length (along track)
-  const TW   = 22;   // train width (perpendicular to track)
+  const PAD  = 14;
+  const GAP  = 8;
+  const TL   = 68;
+  const TW   = 22;
   const MAX_V      = 3.2;
   const BRAKE_DIST = 190;
   const STOP_GAP   = 55;
 
-  // 4 signals evenly spread around the perimeter
   const signals = [
     { frac: 0.10, state: 'lunar', timer: rnd() },
     { frac: 0.35, state: 'red',   timer: rnd() + 70 },
@@ -820,33 +820,24 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 
   let trainFrac = 0, trainV = MAX_V;
 
-  // ── Geometry helpers ───────────────────────────────────────────
+  // ── Geometry ──────────────────────────────────────────────────
   function perim() {
     return 2 * (canvas.width - 2 * PAD + canvas.height - 2 * PAD);
   }
-
   function wrap(t) { return ((t % 1) + 1) % 1; }
+  function fwdDist(a, b) { let d = b - a; if (d < 0) d += 1; return d * perim(); }
 
-  // Forward pixel distance from fraction a to fraction b
-  function fwdDist(a, b) {
-    let d = b - a;
-    if (d < 0) d += 1;
-    return d * perim();
-  }
-
-  // x, y, angle (radians) at fraction t around the rectangle
   function trackPoint(t) {
     const W = canvas.width, H = canvas.height;
     const w = W - 2 * PAD, h = H - 2 * PAD;
-    const p = perim();
-    const d = wrap(t) * p;
-    if (d < w)         return { x: PAD + d,           y: PAD,           angle: 0 };
-    if (d < w + h)     return { x: PAD + w,            y: PAD + (d-w),   angle: Math.PI / 2 };
-    if (d < 2*w + h)   return { x: PAD + w - (d-w-h), y: PAD + h,       angle: Math.PI };
-                       return { x: PAD,                y: PAD+h-(d-2*w-h), angle: -Math.PI / 2 };
+    const d = wrap(t) * perim();
+    if (d < w)       return { x: PAD + d,           y: PAD,             angle: 0 };
+    if (d < w + h)   return { x: PAD + w,            y: PAD + (d-w),     angle: Math.PI / 2 };
+    if (d < 2*w + h) return { x: PAD + w - (d-w-h), y: PAD + h,         angle: Math.PI };
+                     return { x: PAD,                y: PAD+h-(d-2*w-h), angle: -Math.PI / 2 };
   }
 
-  // ── Update ─────────────────────────────────────────────────────
+  // ── Update ────────────────────────────────────────────────────
   function update() {
     signals.forEach(s => {
       if (--s.timer <= 0) {
@@ -868,105 +859,127 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     } else {
       trainV = Math.min(MAX_V, trainV + 0.055);
     }
-
     trainFrac = wrap(trainFrac + trainV / perim());
   }
 
-  // ── Rounded-rect path (no native roundRect dependency) ─────────
+  // ── Rounded-rect path ─────────────────────────────────────────
   function rr(x, y, w, h, r) {
     ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.arcTo(x + w, y,   x + w, y + r,   r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.arcTo(x + w, y+h, x+w-r, y + h,   r);
-    ctx.lineTo(x + r, y + h);
-    ctx.arcTo(x,   y+h, x,   y+h-r,       r);
-    ctx.lineTo(x,   y + r);
-    ctx.arcTo(x,   y,   x+r, y,            r);
-    ctx.closePath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x+w, y,   x+w, y+r,   r); ctx.lineTo(x+w, y+h-r);
+    ctx.arcTo(x+w, y+h, x+w-r, y+h, r); ctx.lineTo(x+r, y+h);
+    ctx.arcTo(x, y+h,   x, y+h-r,   r); ctx.lineTo(x, y+r);
+    ctx.arcTo(x, y,     x+r, y,      r); ctx.closePath();
   }
 
-  // ── Draw track ─────────────────────────────────────────────────
+  // ── Draw track ────────────────────────────────────────────────
   function drawTrack() {
     const W = canvas.width, H = canvas.height;
     const p = perim();
-    const tieStep = 22;
 
-    // Ties (short perpendicular rectangles)
-    ctx.fillStyle = 'rgba(20,35,55,0.85)';
-    for (let d = 0; d < p; d += tieStep) {
+    ctx.fillStyle = 'rgba(20,35,55,0.8)';
+    for (let d = 0; d < p; d += 22) {
       const pt = trackPoint(d / p);
       ctx.save();
-      ctx.translate(pt.x, pt.y);
-      ctx.rotate(pt.angle);
+      ctx.translate(pt.x, pt.y); ctx.rotate(pt.angle);
       ctx.fillRect(-GAP * 1.6, -2, GAP * 3.2, 4);
       ctx.restore();
     }
 
-    // Two rails (inner & outer rectangles)
     for (const offset of [-GAP / 2, GAP / 2]) {
       const r = PAD + offset;
       ctx.strokeStyle = offset < 0 ? 'rgba(155,180,200,0.75)' : 'rgba(100,130,155,0.65)';
       ctx.lineWidth = 2.2;
-      ctx.strokeRect(r, r, W - 2 * r, H - 2 * r);
+      ctx.strokeRect(r, r, W - 2*r, H - 2*r);
     }
   }
 
-  // ── Draw one signal ────────────────────────────────────────────
+  // ── Draw 3-aspect signal ──────────────────────────────────────
   function drawSignal(s) {
-    const pt = trackPoint(s.frac);
-    // Inward perpendicular (right-hand side of direction of travel = toward page centre)
+    const pt  = trackPoint(s.frac);
+    // Inward perpendicular (right of travel direction = toward page centre)
     const ipx = -Math.sin(pt.angle);
     const ipy =  Math.cos(pt.angle);
 
-    const base = { x: pt.x + ipx * (GAP + 4),  y: pt.y + ipy * (GAP + 4) };
-    const tip  = { x: pt.x + ipx * (GAP + 22), y: pt.y + ipy * (GAP + 22) };
+    const poleLen = 20;
+    const tip = { x: pt.x + ipx * poleLen, y: pt.y + ipy * poleLen };
 
-    // Mast
-    ctx.strokeStyle = 'rgba(50,70,90,0.9)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
+    // Pole / mast
+    ctx.strokeStyle = 'rgba(45,65,85,0.95)'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
 
-    const now = Date.now();
+    // Base plate
+    ctx.fillStyle = '#1e2c3c';
+    ctx.fillRect(pt.x - 4, pt.y - 2, 8, 4);
+
+    // Housing — always vertical, centred on pole tip
+    const hW = 13, hH = 28;
+    const hx = tip.x - hW / 2;
+    const hy = tip.y - hH / 2;
+
+    ctx.fillStyle = '#0e1824'; ctx.strokeStyle = '#1a2838'; ctx.lineWidth = 1;
+    rr(hx, hy, hW, hH, 2); ctx.fill(); ctx.stroke();
+
+    const now   = Date.now();
     const lunarOn = Math.floor(now / 545) % 2 === 0; // 55 flashes/min
 
+    // Three bezel sockets (top=lunar, mid=unlit, bottom=red)
+    const bx = tip.x;
+    const yTop = hy + 5, yMid = hy + hH / 2, yBot = hy + hH - 5;
+    const bR = 4;
+
+    // ── Top light (lunar) ─────
+    ctx.beginPath(); ctx.arc(bx, yTop, bR, 0, Math.PI * 2);
+    ctx.fillStyle = '#050b12'; ctx.fill();
     if (s.state === 'lunar') {
       if (lunarOn) {
-        // Outer glow
-        ctx.beginPath(); ctx.arc(tip.x, tip.y, 8, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(bx, yTop, 9, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(180,215,255,0.15)'; ctx.fill();
-        // Light
-        ctx.beginPath(); ctx.arc(tip.x, tip.y, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(220,238,255,0.95)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(bx, yTop, bR, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(220,240,255,0.95)'; ctx.fill();
+        // inner bright core
+        ctx.beginPath(); ctx.arc(bx, yTop, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#f4faff'; ctx.fill();
       } else {
-        ctx.beginPath(); ctx.arc(tip.x, tip.y, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(220,238,255,0.06)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(bx, yTop, bR, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(220,240,255,0.05)'; ctx.fill();
       }
-    } else {
-      // Red glow
-      ctx.beginPath(); ctx.arc(tip.x, tip.y, 9, 0, Math.PI * 2);
+    }
+
+    // ── Middle light (always unlit) ───
+    ctx.beginPath(); ctx.arc(bx, yMid, bR, 0, Math.PI * 2);
+    ctx.fillStyle = '#050b12'; ctx.fill();
+
+    // ── Bottom light (red) ────
+    ctx.beginPath(); ctx.arc(bx, yBot, bR, 0, Math.PI * 2);
+    ctx.fillStyle = '#050b12'; ctx.fill();
+    if (s.state === 'red') {
+      ctx.beginPath(); ctx.arc(bx, yBot, 10, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,30,30,0.12)'; ctx.fill();
-      // Red light
-      ctx.beginPath(); ctx.arc(tip.x, tip.y, 4.5, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(bx, yBot, bR, 0, Math.PI * 2);
       ctx.fillStyle = '#ff2020'; ctx.fill();
+      ctx.beginPath(); ctx.arc(bx, yBot, 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff8888'; ctx.fill();
     }
   }
 
-  // ── Draw train ─────────────────────────────────────────────────
+  // ── Draw train ────────────────────────────────────────────────
   function drawTrain() {
     const pt = trackPoint(trainFrac);
+
     ctx.save();
     ctx.translate(pt.x, pt.y);
     ctx.rotate(pt.angle);
+    // Keep train upright on the bottom section (angle ≈ π = going left)
+    if (Math.abs(pt.angle) > Math.PI * 0.9) ctx.scale(1, -1);
 
-    // Body centred on track point, oriented along angle
     const bx = -TL / 2, by = -TW / 2;
 
-    // Shadow / depth
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
     rr(bx + 2, by + 2, TL, TW, 3); ctx.fill();
 
-    // Body gradient (silver)
+    // Body
     const g = ctx.createLinearGradient(bx, by, bx, by + TW);
     g.addColorStop(0,   '#ccd8e4');
     g.addColorStop(0.4, '#b0c2d0');
@@ -979,8 +992,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 
     // Roof shine
     const shine = ctx.createLinearGradient(bx, by, bx, by + TW * 0.35);
-    shine.addColorStop(0, 'rgba(255,255,255,0.35)');
-    shine.addColorStop(1, 'rgba(255,255,255,0)');
+    shine.addColorStop(0, 'rgba(255,255,255,0.35)'); shine.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = shine; ctx.fillRect(bx + 3, by, TL - 6, TW * 0.35);
 
     // Windows
@@ -991,7 +1003,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 
     // Bogies
     ctx.fillStyle = '#111a24';
-    rr(bx + 5,      by + TW, 22, 4, 1); ctx.fill();
+    rr(bx + 5,       by + TW, 22, 4, 1); ctx.fill();
     rr(bx + TL - 27, by + TW, 22, 4, 1); ctx.fill();
 
     // Wheels
@@ -1007,7 +1019,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     ctx.restore();
   }
 
-  // ── Draw frame ─────────────────────────────────────────────────
+  // ── Draw frame ────────────────────────────────────────────────
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawTrack();
@@ -1015,12 +1027,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     drawTrain();
   }
 
-  // ── Resize & loop ──────────────────────────────────────────────
-  function resize() {
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
   window.addEventListener('resize', resize);
   resize();
 
