@@ -1,4 +1,4 @@
-const VERSION = 'v2.21.0';
+const VERSION = 'v2.22.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -794,6 +794,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   });
   document.getElementById('stats-row').innerHTML = '';
   document.getElementById('summary-box').innerHTML = '';
+});
 
 // ─── Border Rail Scene Animation ──────────────────────────────────
 (function () {
