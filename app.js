@@ -1,4 +1,4 @@
-const VERSION = 'v2.22.0';
+const VERSION = 'v2.23.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -474,6 +474,19 @@ async function exportExcel(results, masterData, allHeaders) {
   const FONT_RED   = { bold: true, color: { argb: 'CC0000' } };
   const FONT_GREEN = { color: { argb: '007744' } };
 
+  function autoFitColumns(ws) {
+    const widths = {};
+    ws.eachRow(row => {
+      row.eachCell({ includeEmpty: false }, (cell, colIdx) => {
+        const len = cell.value != null ? String(cell.value).length : 0;
+        widths[colIdx] = Math.max(widths[colIdx] || 0, len);
+      });
+    });
+    Object.entries(widths).forEach(([colIdx, len]) => {
+      ws.getColumn(Number(colIdx)).width = Math.min(len + 3, 60);
+    });
+  }
+
   function addFullSheet(name, rows) {
     const ws = wb.addWorksheet(name);
     ws.addRow(fullHeaders).font = { bold: true };
@@ -516,6 +529,7 @@ async function exportExcel(results, masterData, allHeaders) {
     const totalCount = uniqueErrRows.reduce((sum, r) => sum + r.count, 0);
     const totalRow = wsUE.addRow([totalCount, '', 'TOTAL failure instances', '', '', '']);
     totalRow.font = { bold: true };
+    autoFitColumns(wsUE);
   }
 
   const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
@@ -524,6 +538,7 @@ async function exportExcel(results, masterData, allHeaders) {
     const wsMissing = wb.addWorksheet('Missing From New File');
     wsMissing.addRow(['Circuit Name', 'Serial Number']).font = { bold: true };
     missing.forEach(m => wsMissing.addRow([m.circuitName, m.serialNumber]));
+    autoFitColumns(wsMissing);
   }
 
   const total = results.length;
@@ -540,6 +555,7 @@ async function exportExcel(results, masterData, allHeaders) {
     ['Match Rate', total ? `${Math.round(((total - fails) / total) * 100)}%` : 'N/A'],
     ['Master Serials Missing from New File', missing.length],
   ].forEach(row => wsSummary.addRow(row));
+  autoFitColumns(wsSummary);
 
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -802,7 +818,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
 
-  const PAD  = 14;
+  const PAD  = 36;
   const GAP  = 8;
   const TL   = 68;
   const TW   = 22;
@@ -895,73 +911,72 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     }
   }
 
-  // ── Draw 3-aspect signal ──────────────────────────────────────
+  // ── Draw signal (parallel with track, pole+junction below housing) ──
   function drawSignal(s) {
-    const pt  = trackPoint(s.frac);
-    // Inward perpendicular (right of travel direction = toward page centre)
-    const ipx = -Math.sin(pt.angle);
-    const ipy =  Math.cos(pt.angle);
+    const pt = trackPoint(s.frac);
+    const lunarOn = Math.floor(Date.now() / 545) % 2 === 0;
 
-    const poleLen = 20;
-    const tip = { x: pt.x + ipx * poleLen, y: pt.y + ipy * poleLen };
+    ctx.save();
+    ctx.translate(pt.x, pt.y);
+    ctx.rotate(pt.angle);
+    // local -y = outward from viewport center (toward border edge)
 
-    // Pole / mast
-    ctx.strokeStyle = 'rgba(45,65,85,0.95)'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
+    const jbW = 10, jbH = 3;  // junction box dimensions
+    const poleH = 9;            // pole height from junction box to housing base
+    const hW = 10, hH = 18;    // housing dimensions
+    const bR = 2.5;             // bezel radius
 
-    // Base plate
-    ctx.fillStyle = '#1e2c3c';
-    ctx.fillRect(pt.x - 4, pt.y - 2, 8, 4);
+    const houseBot = -(jbH + poleH);       // y of housing bottom edge
+    const houseTop = houseBot - hH;        // y of housing top edge
 
-    // Housing — always vertical, centred on pole tip
-    const hW = 13, hH = 28;
-    const hx = tip.x - hW / 2;
-    const hy = tip.y - hH / 2;
+    // Base foot plate (at track level)
+    ctx.fillStyle = '#3a4a5a';
+    ctx.fillRect(-jbW * 0.55, -1.5, jbW * 1.1, 1.5);
 
-    ctx.fillStyle = '#0e1824'; ctx.strokeStyle = '#1a2838'; ctx.lineWidth = 1;
-    rr(hx, hy, hW, hH, 2); ctx.fill(); ctx.stroke();
+    // Junction box
+    ctx.fillStyle = '#3a4a5a';
+    rr(-jbW / 2, -jbH, jbW, jbH, 1.5); ctx.fill();
 
-    const now   = Date.now();
-    const lunarOn = Math.floor(now / 545) % 2 === 0; // 55 flashes/min
+    // Pole
+    ctx.strokeStyle = '#3a4a5a'; ctx.lineWidth = 2.2; ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(0, -jbH); ctx.lineTo(0, houseBot); ctx.stroke();
 
-    // Three bezel sockets (top=lunar, mid=unlit, bottom=red)
-    const bx = tip.x;
-    const yTop = hy + 5, yMid = hy + hH / 2, yBot = hy + hH - 5;
-    const bR = 4;
+    // Housing
+    ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 0.8;
+    rr(-hW / 2, houseTop, hW, hH, 2); ctx.fill(); ctx.stroke();
 
-    // ── Top light (lunar) ─────
-    ctx.beginPath(); ctx.arc(bx, yTop, bR, 0, Math.PI * 2);
-    ctx.fillStyle = '#050b12'; ctx.fill();
-    if (s.state === 'lunar') {
-      if (lunarOn) {
-        ctx.beginPath(); ctx.arc(bx, yTop, 9, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(180,215,255,0.15)'; ctx.fill();
-        ctx.beginPath(); ctx.arc(bx, yTop, bR, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(220,240,255,0.95)'; ctx.fill();
-        // inner bright core
-        ctx.beginPath(); ctx.arc(bx, yTop, 2, 0, Math.PI * 2);
-        ctx.fillStyle = '#f4faff'; ctx.fill();
-      } else {
-        ctx.beginPath(); ctx.arc(bx, yTop, bR, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(220,240,255,0.05)'; ctx.fill();
-      }
+    // Light y positions: lunar = top (outermost), mid = unlit, red = bottom
+    const ly1 = houseTop + bR + 2;
+    const ly2 = houseTop + hH / 2;
+    const ly3 = houseTop + hH - bR - 2;
+
+    // Bezels (dark sockets)
+    [ly1, ly2, ly3].forEach(ly => {
+      ctx.beginPath(); ctx.arc(0, ly, bR, 0, Math.PI * 2);
+      ctx.fillStyle = '#050b12'; ctx.fill();
+    });
+
+    // Lunar (top light)
+    if (s.state === 'lunar' && lunarOn) {
+      ctx.beginPath(); ctx.arc(0, ly1, bR * 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(180,215,255,0.15)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(0, ly1, bR, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(220,240,255,0.95)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(0, ly1, bR * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#f4faff'; ctx.fill();
     }
 
-    // ── Middle light (always unlit) ───
-    ctx.beginPath(); ctx.arc(bx, yMid, bR, 0, Math.PI * 2);
-    ctx.fillStyle = '#050b12'; ctx.fill();
-
-    // ── Bottom light (red) ────
-    ctx.beginPath(); ctx.arc(bx, yBot, bR, 0, Math.PI * 2);
-    ctx.fillStyle = '#050b12'; ctx.fill();
+    // Red (bottom light)
     if (s.state === 'red') {
-      ctx.beginPath(); ctx.arc(bx, yBot, 10, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(0, ly3, bR * 2.8, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,30,30,0.12)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(bx, yBot, bR, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(0, ly3, bR, 0, Math.PI * 2);
       ctx.fillStyle = '#ff2020'; ctx.fill();
-      ctx.beginPath(); ctx.arc(bx, yBot, 2, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(0, ly3, bR * 0.5, 0, Math.PI * 2);
       ctx.fillStyle = '#ff8888'; ctx.fill();
     }
+
+    ctx.restore();
   }
 
   // ── Draw train ────────────────────────────────────────────────
@@ -971,8 +986,8 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     ctx.save();
     ctx.translate(pt.x, pt.y);
     ctx.rotate(pt.angle);
-    // Keep train upright on the bottom section (angle ≈ π = going left)
-    if (Math.abs(pt.angle) > Math.PI * 0.9) ctx.scale(1, -1);
+    // Roof toward inside on all edges except top-going-right (angle≈0)
+    if (Math.abs(pt.angle) > 0.01) ctx.scale(1, -1);
 
     const bx = -TL / 2, by = -TW / 2;
 
@@ -995,6 +1010,14 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     const shine = ctx.createLinearGradient(bx, by, bx, by + TW * 0.35);
     shine.addColorStop(0, 'rgba(255,255,255,0.35)'); shine.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = shine; ctx.fillRect(bx + 3, by, TL - 6, TW * 0.35);
+
+    // Pantograph (extends from roof outward toward overhead wire)
+    const panSpread = 5, panRise = 6, barHW = 7;
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, by); ctx.lineTo(-panSpread, by - panRise); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, by); ctx.lineTo(+panSpread, by - panRise); ctx.stroke();
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-barHW, by - panRise); ctx.lineTo(+barHW, by - panRise); ctx.stroke();
 
     // Windows
     ctx.fillStyle = 'rgba(10,28,58,0.9)';
