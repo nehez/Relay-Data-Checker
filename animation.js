@@ -97,7 +97,7 @@
     }
   }
 
-  // ── Draw signal (along-track, inside inner rail) ──────────────────
+  // ── Draw signal (along-track, inside inner rail, 2× size) ────────
   function drawSignal(s) {
     const pt = trackPoint(s.frac);
     const lunarOn = Math.floor(Date.now() / 545) % 2 === 0;
@@ -107,58 +107,59 @@
     ctx.rotate(pt.angle);
     // +x = direction of travel, +y = inward toward center
 
-    // Sit just inside the inner rail
-    ctx.translate(0, GAP + 2);
+    // 2 signal-head widths inside the inner rail
+    ctx.translate(0, 50);
 
-    const jbSZ  = 5;   // junction box size (square)
-    const poleH = 10;  // pole length along track
-    const hH    = 18;  // housing length along track
-    const hW    = 9;   // housing width inward
-    const bR    = 2.2; // bezel radius
+    const jbSZ  = 10;  // junction box size (square)
+    const poleH = 20;  // pole length along track
+    const hD    = 14;  // housing depth along track
+    const hH    = 34;  // housing height inward (fits 3 stacked lights)
+    const bR    = 4.4; // bezel radius
 
     // Center assembly on x=0; junction box toward approaching train (-x)
-    const half   = (jbSZ + poleH + hH) / 2;
+    const half   = (jbSZ + poleH + hD) / 2;
     const jbX    = -half;
     const poleX  = jbX + jbSZ;
     const houseX = poleX + poleH;
 
     // Junction box (approaching-train end)
     ctx.fillStyle = '#3a4a5a';
-    rr(jbX, -jbSZ / 2, jbSZ, jbSZ, 1.5); ctx.fill();
+    rr(jbX, -jbSZ / 2, jbSZ, jbSZ, 2); ctx.fill();
 
     // Pole
-    ctx.strokeStyle = '#3a4a5a'; ctx.lineWidth = 2; ctx.lineCap = 'butt';
+    ctx.strokeStyle = '#3a4a5a'; ctx.lineWidth = 3; ctx.lineCap = 'butt';
     ctx.beginPath(); ctx.moveTo(poleX, 0); ctx.lineTo(houseX, 0); ctx.stroke();
 
     // Housing (departure end)
-    ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 0.8;
-    rr(houseX, -hW / 2, hH, hW, 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 1;
+    rr(houseX, -hH / 2, hD, hH, 3); ctx.fill(); ctx.stroke();
 
-    // Lights along x in housing: lunar at front (faces approaching train), red at rear
-    const lx1 = houseX + bR + 2;
-    const lx2 = houseX + hH / 2;
-    const lx3 = houseX + hH - bR - 2;
+    // Lights stacked along y: lunar = top (toward track = -y), red = bottom (+y)
+    const lx  = houseX + hD / 2;
+    const ly1 = -hH / 2 + bR + 3;  // lunar (top)
+    const ly2 = 0;                   // mid (unlit)
+    const ly3 =  hH / 2 - bR - 3;  // red (bottom)
 
-    [lx1, lx2, lx3].forEach(lx => {
-      ctx.beginPath(); ctx.arc(lx, 0, bR, 0, Math.PI * 2);
+    [ly1, ly2, ly3].forEach(ly => {
+      ctx.beginPath(); ctx.arc(lx, ly, bR, 0, Math.PI * 2);
       ctx.fillStyle = '#050b12'; ctx.fill();
     });
 
     if (s.state === 'lunar' && lunarOn) {
-      ctx.beginPath(); ctx.arc(lx1, 0, bR * 2.2, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx, ly1, bR * 2.2, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(180,215,255,0.15)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(lx1, 0, bR, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx, ly1, bR, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(220,240,255,0.95)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(lx1, 0, bR * 0.5, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx, ly1, bR * 0.5, 0, Math.PI * 2);
       ctx.fillStyle = '#f4faff'; ctx.fill();
     }
 
     if (s.state === 'red') {
-      ctx.beginPath(); ctx.arc(lx3, 0, bR * 2.8, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx, ly3, bR * 2.8, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,30,30,0.12)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(lx3, 0, bR, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx, ly3, bR, 0, Math.PI * 2);
       ctx.fillStyle = '#ff2020'; ctx.fill();
-      ctx.beginPath(); ctx.arc(lx3, 0, bR * 0.5, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx, ly3, bR * 0.5, 0, Math.PI * 2);
       ctx.fillStyle = '#ff8888'; ctx.fill();
     }
 

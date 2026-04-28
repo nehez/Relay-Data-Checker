@@ -45,10 +45,10 @@ async function exportExcel(results, masterData, allHeaders) {
     });
   }
 
-  function alignRight(ws) {
+  function alignLeft(ws) {
     ws.eachRow(row => {
       row.eachCell({ includeEmpty: true }, cell => {
-        cell.alignment = { horizontal: 'right' };
+        cell.alignment = { horizontal: 'left' };
       });
     });
   }
@@ -75,7 +75,7 @@ async function exportExcel(results, masterData, allHeaders) {
       }
     });
     fitSerialNomenclature(ws, fullHeaders);
-    alignRight(ws);
+    alignLeft(ws);
   }
 
   addFullSheet('Full Data', sorted);
