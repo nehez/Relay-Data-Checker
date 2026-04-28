@@ -30,6 +30,29 @@ async function exportExcel(results, masterData, allHeaders) {
     });
   }
 
+  function fitSerialNomenclature(ws, headers) {
+    headers.forEach((h, i) => {
+      const hl = String(h).toLowerCase();
+      if (hl === 'nomenclature' || hl === 'serial number') {
+        const colIdx = i + 1;
+        let maxLen = String(h).length;
+        ws.getColumn(colIdx).eachCell({ includeEmpty: false }, cell => {
+          const len = cell.value != null ? String(cell.value).length : 0;
+          if (len > maxLen) maxLen = len;
+        });
+        ws.getColumn(colIdx).width = Math.min(maxLen + 3, 60);
+      }
+    });
+  }
+
+  function alignRight(ws) {
+    ws.eachRow(row => {
+      row.eachCell({ includeEmpty: true }, cell => {
+        cell.alignment = { horizontal: 'right' };
+      });
+    });
+  }
+
   function addFullSheet(name, rows) {
     const ws = wb.addWorksheet(name);
     ws.addRow(fullHeaders).font = { bold: true };
@@ -51,7 +74,8 @@ async function exportExcel(results, masterData, allHeaders) {
         }
       }
     });
-    autoFitColumns(ws);
+    fitSerialNomenclature(ws, fullHeaders);
+    alignRight(ws);
   }
 
   addFullSheet('Full Data', sorted);
@@ -75,6 +99,7 @@ async function exportExcel(results, masterData, allHeaders) {
     const totalRow = wsUE.addRow([totalCount, '', 'TOTAL failure instances', '', '', '', '']);
     totalRow.font = { bold: true };
     autoFitColumns(wsUE);
+    alignRight(wsUE);
   }
 
   const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
@@ -84,6 +109,7 @@ async function exportExcel(results, masterData, allHeaders) {
     wsMissing.addRow(['Circuit Name', 'Serial Number']).font = { bold: true };
     missing.forEach(m => wsMissing.addRow([m.circuitName, m.serialNumber]));
     autoFitColumns(wsMissing);
+    alignRight(wsMissing);
   }
 
   const total = results.length;
@@ -101,6 +127,7 @@ async function exportExcel(results, masterData, allHeaders) {
     ['Master Serials Missing from New File', missing.length],
   ].forEach(row => wsSummary.addRow(row));
   autoFitColumns(wsSummary);
+  alignRight(wsSummary);
 
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
