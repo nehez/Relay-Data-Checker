@@ -97,7 +97,7 @@
     }
   }
 
-  // ── Draw signal (parallel with track, pole+junction below housing) ──
+  // ── Draw signal (parallel with track, inside inner rail) ─────────
   function drawSignal(s) {
     const pt = trackPoint(s.frac);
     const lunarOn = Math.floor(Date.now() / 545) % 2 === 0;
@@ -105,36 +105,36 @@
     ctx.save();
     ctx.translate(pt.x, pt.y);
     ctx.rotate(pt.angle);
-    // local -y = outward from viewport center (toward border edge)
+    // local +y = inward toward viewport center
 
     const jbW = 10, jbH = 3;  // junction box dimensions
     const poleH = 9;            // pole height from junction box to housing base
     const hW = 10, hH = 18;    // housing dimensions
     const bR = 2.5;             // bezel radius
 
-    const houseBot = -(jbH + poleH);       // y of housing bottom edge
-    const houseTop = houseBot - hH;        // y of housing top edge
+    const houseNear = jbH + poleH;      // y of housing near-track edge
+    const houseFar  = houseNear + hH;   // y of housing far-from-track edge
 
     // Base foot plate (at track level)
     ctx.fillStyle = '#3a4a5a';
-    ctx.fillRect(-jbW * 0.55, -1.5, jbW * 1.1, 1.5);
+    ctx.fillRect(-jbW * 0.55, 0, jbW * 1.1, 1.5);
 
     // Junction box
     ctx.fillStyle = '#3a4a5a';
-    rr(-jbW / 2, -jbH, jbW, jbH, 1.5); ctx.fill();
+    rr(-jbW / 2, 0, jbW, jbH, 1.5); ctx.fill();
 
     // Pole
     ctx.strokeStyle = '#3a4a5a'; ctx.lineWidth = 2.2; ctx.lineCap = 'butt';
-    ctx.beginPath(); ctx.moveTo(0, -jbH); ctx.lineTo(0, houseBot); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, jbH); ctx.lineTo(0, houseNear); ctx.stroke();
 
     // Housing
     ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 0.8;
-    rr(-hW / 2, houseTop, hW, hH, 2); ctx.fill(); ctx.stroke();
+    rr(-hW / 2, houseNear, hW, hH, 2); ctx.fill(); ctx.stroke();
 
-    // Light y positions: lunar = top (outermost), mid = unlit, red = bottom
-    const ly1 = houseTop + bR + 2;
-    const ly2 = houseTop + hH / 2;
-    const ly3 = houseTop + hH - bR - 2;
+    // Light y positions: lunar = far/inward (top), red = near/track (bottom)
+    const ly1 = houseFar  - bR - 2;    // lunar (top = most inward)
+    const ly2 = houseNear + hH / 2;    // mid (unlit)
+    const ly3 = houseNear + bR + 2;    // red (bottom = closest to track)
 
     // Bezels (dark sockets)
     [ly1, ly2, ly3].forEach(ly => {

@@ -51,6 +51,7 @@ async function exportExcel(results, masterData, allHeaders) {
         }
       }
     });
+    autoFitColumns(ws);
   }
 
   addFullSheet('Full Data', sorted);
@@ -66,11 +67,12 @@ async function exportExcel(results, masterData, allHeaders) {
   const uniqueErrRows = [...seenU.values()];
   if (uniqueErrRows.length) {
     const wsUE = wb.addWorksheet('Unique Failures');
-    wsUE.addRow(['Count', 'Status', 'Issue', 'Nomenclature', 'Serial Number', 'Report Number']).font = { bold: true };
-    const getReport = r => r['Report Number'] || r['Report No'] || r['Report#'] || r['Report No.'] || '';
-    uniqueErrRows.forEach(r => wsUE.addRow([r.count, r._status, r._issue, r._circuitName, r._serialNumber, getReport(r)]));
+    wsUE.addRow(['Count', 'Status', 'Issue', 'Nomenclature', 'Serial Number', 'Report Number', 'Comments']).font = { bold: true };
+    const getReport  = r => r['Report Number'] || r['Report No'] || r['Report#'] || r['Report No.'] || '';
+    const getComment = r => r['Comments'] || r['Comment'] || r['COMMENTS'] || r['comment'] || '';
+    uniqueErrRows.forEach(r => wsUE.addRow([r.count, r._status, r._issue, r._circuitName, r._serialNumber, getReport(r), getComment(r)]));
     const totalCount = uniqueErrRows.reduce((sum, r) => sum + r.count, 0);
-    const totalRow = wsUE.addRow([totalCount, '', 'TOTAL failure instances', '', '', '']);
+    const totalRow = wsUE.addRow([totalCount, '', 'TOTAL failure instances', '', '', '', '']);
     totalRow.font = { bold: true };
     autoFitColumns(wsUE);
   }
