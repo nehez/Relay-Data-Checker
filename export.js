@@ -99,7 +99,7 @@ async function exportExcel(results, masterData, allHeaders) {
     const totalRow = wsUE.addRow([totalCount, '', 'TOTAL failure instances', '', '', '', '']);
     totalRow.font = { bold: true };
     autoFitColumns(wsUE);
-    alignRight(wsUE);
+    alignLeft(wsUE);
   }
 
   const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
@@ -109,7 +109,7 @@ async function exportExcel(results, masterData, allHeaders) {
     wsMissing.addRow(['Circuit Name', 'Serial Number']).font = { bold: true };
     missing.forEach(m => wsMissing.addRow([m.circuitName, m.serialNumber]));
     autoFitColumns(wsMissing);
-    alignRight(wsMissing);
+    alignLeft(wsMissing);
   }
 
   const total = results.length;
@@ -127,7 +127,7 @@ async function exportExcel(results, masterData, allHeaders) {
     ['Master Serials Missing from New File', missing.length],
   ].forEach(row => wsSummary.addRow(row));
   autoFitColumns(wsSummary);
-  alignRight(wsSummary);
+  alignLeft(wsSummary);
 
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
