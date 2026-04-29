@@ -102,6 +102,14 @@ async function exportExcel(results, masterData, allHeaders) {
     alignLeft(wsUE);
   }
 
+  if (trCol > 0) {
+    const trName = fullHeaders[trCol - 1];
+    const trFailRows = sorted.filter(r =>
+      String(r[trName] ?? '').toUpperCase().trim().includes('FAIL')
+    );
+    if (trFailRows.length) addFullSheet('Test Result Failures', trFailRows);
+  }
+
   const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
   const missing = masterData.filter(m => !newSerials.has(m.serialNumber.toUpperCase()));
   if (missing.length) {
