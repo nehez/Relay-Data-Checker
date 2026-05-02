@@ -76,6 +76,7 @@ async function exportExcel(results, masterData, allHeaders) {
     });
     fitSerialNomenclature(ws, fullHeaders);
     alignLeft(ws);
+    return ws;
   }
 
   addFullSheet('Full Data', sorted);
@@ -100,6 +101,8 @@ async function exportExcel(results, masterData, allHeaders) {
     totalRow.font = { bold: true };
     autoFitColumns(wsUE);
     alignLeft(wsUE);
+    wsUE.pageSetup = { orientation: 'landscape', showGridLines: true };
+    wsUE.headerFooter = { oddHeader: '&C&BUnique Failures', oddFooter: '&CPage &P of &N' };
   }
 
   if (trCol > 0) {
@@ -107,17 +110,39 @@ async function exportExcel(results, masterData, allHeaders) {
     const trFailRows = sorted.filter(r =>
       String(r[trName] ?? '').toUpperCase().trim().includes('FAIL')
     );
-    if (trFailRows.length) addFullSheet('Test Result Failures', trFailRows);
+    if (trFailRows.length) {
+      const wsTRF = addFullSheet('Test Result Failures', trFailRows);
+      const trfPrint = new Set([
+        'status', 'report number', 'report no', 'report#', 'report no.',
+        'serial number', 'relay style', 'relay type', 'location',
+        'nomenclature', 'comment', 'comments', 'contact',
+        'test', 'test value', 'test result',
+      ]);
+      fullHeaders.forEach((h, i) => {
+        if (!trfPrint.has(String(h).toLowerCase()))
+          wsTRF.getColumn(i + 1).hidden = true;
+      });
+      wsTRF.pageSetup = {
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        showGridLines: true,
+      };
+      wsTRF.headerFooter = { oddHeader: '&C&BTest Result Failures', oddFooter: '&CPage &P of &N' };
+    }
   }
 
   const newSerials = new Set(results.map(r => String(r['Serial Number'] ?? '').trim().toUpperCase()));
   const missing = masterData.filter(m => !newSerials.has(m.serialNumber.toUpperCase()));
   if (missing.length) {
     const wsMissing = wb.addWorksheet('Missing From New File');
-    wsMissing.addRow(['Circuit Name', 'Serial Number']).font = { bold: true };
-    missing.forEach(m => wsMissing.addRow([m.circuitName, m.serialNumber]));
+    wsMissing.addRow(['Circuit Name', 'Serial Number', 'Comments']).font = { bold: true };
+    missing.forEach(m => wsMissing.addRow([m.circuitName, m.serialNumber, m.comment || '']));
     autoFitColumns(wsMissing);
     alignLeft(wsMissing);
+    wsMissing.pageSetup = { orientation: 'portrait', showGridLines: true };
+    wsMissing.headerFooter = { oddHeader: '&C&BMissing From New File', oddFooter: '&CPage &P of &N' };
   }
 
   const total = results.length;

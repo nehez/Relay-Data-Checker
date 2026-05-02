@@ -1,4 +1,4 @@
-const VERSION = 'v2.27.0';
+const VERSION = 'v2.28.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -54,7 +54,7 @@ async function loadMaster(file) {
     }
   }
 
-  let circuitCol = -1, serialCol = -1;
+  let circuitCol = -1, serialCol = -1, commentCol = -1;
 
   if (headerRow1Idx >= 0) {
     const row1 = raw[headerRow1Idx].map(c => String(c).trim().toUpperCase());
@@ -63,6 +63,7 @@ async function loadMaster(file) {
     for (let c = 0; c < row1.length; c++) {
       if (row1[c] === 'CIRCUIT' && row2[c] === 'NAME') { circuitCol = c; }
       if (row1[c] === 'SERIAL' && row2[c] === 'NUMBER') { serialCol = c; }
+      if (row1[c].includes('COMMENT')) { commentCol = c; }
     }
     if (circuitCol === -1) {
       for (let c = 0; c < row1.length; c++) {
@@ -79,7 +80,8 @@ async function loadMaster(file) {
       const row = raw[i];
       const cn = String(row[circuitCol] ?? '').trim();
       const sn = String(row[serialCol] ?? '').trim();
-      if (cn || sn) data.push({ circuitName: cn, serialNumber: sn });
+      const cmt = commentCol >= 0 ? String(row[commentCol] ?? '').trim() : '';
+      if (cn || sn) data.push({ circuitName: cn, serialNumber: sn, comment: cmt });
     }
     return data;
   }
@@ -92,6 +94,7 @@ async function loadMaster(file) {
     if (headerRow[c].includes('SERIAL')) {
       if (serialCol === -1 || headerRow[c] === 'SERIAL NUMBER') serialCol = c;
     }
+    if (headerRow[c].includes('COMMENT')) commentCol = c;
   }
 
   if (circuitCol === -1 || serialCol === -1) {
@@ -103,7 +106,8 @@ async function loadMaster(file) {
     const row = raw[i];
     const cn = String(row[circuitCol] ?? '').trim();
     const sn = String(row[serialCol] ?? '').trim();
-    if (cn || sn) data.push({ circuitName: cn, serialNumber: sn });
+    const cmt = commentCol >= 0 ? String(row[commentCol] ?? '').trim() : '';
+    if (cn || sn) data.push({ circuitName: cn, serialNumber: sn, comment: cmt });
   }
   return data;
 }
