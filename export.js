@@ -101,7 +101,7 @@ async function exportExcel(results, masterData, allHeaders) {
     totalRow.font = { bold: true };
     autoFitColumns(wsUE);
     alignLeft(wsUE);
-    wsUE.pageSetup = { orientation: 'landscape', showGridLines: true };
+    wsUE.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, showGridLines: true };
     wsUE.headerFooter = { oddHeader: '&C&BUnique Failures', oddFooter: '&CPage &P of &N' };
   }
 
@@ -137,8 +137,8 @@ async function exportExcel(results, masterData, allHeaders) {
   const missing = masterData.filter(m => !newSerials.has(m.serialNumber.toUpperCase()));
   if (missing.length) {
     const wsMissing = wb.addWorksheet('Missing From New File');
-    wsMissing.addRow(['Circuit Name', 'Serial Number', 'Comments']).font = { bold: true };
-    missing.forEach(m => wsMissing.addRow([m.circuitName, m.serialNumber, m.comment || '']));
+    wsMissing.addRow(['Circuit Name', 'Serial Number', 'Rack Location', 'Comments']).font = { bold: true };
+    missing.forEach(m => wsMissing.addRow([m.circuitName, m.serialNumber, m.rackLocation || '', m.comment || '']));
     autoFitColumns(wsMissing);
     alignLeft(wsMissing);
     wsMissing.pageSetup = { orientation: 'portrait', showGridLines: true };

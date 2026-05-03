@@ -1,4 +1,4 @@
-const VERSION = 'v2.28.0';
+const VERSION = 'v2.29.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -54,7 +54,7 @@ async function loadMaster(file) {
     }
   }
 
-  let circuitCol = -1, serialCol = -1, commentCol = -1;
+  let circuitCol = -1, serialCol = -1, commentCol = -1, rackLocCol = -1;
 
   if (headerRow1Idx >= 0) {
     const row1 = raw[headerRow1Idx].map(c => String(c).trim().toUpperCase());
@@ -64,6 +64,7 @@ async function loadMaster(file) {
       if (row1[c] === 'CIRCUIT' && row2[c] === 'NAME') { circuitCol = c; }
       if (row1[c] === 'SERIAL' && row2[c] === 'NUMBER') { serialCol = c; }
       if (row1[c].includes('COMMENT')) { commentCol = c; }
+      if (row1[c].includes('RACK')) { rackLocCol = c; }
     }
     if (circuitCol === -1) {
       for (let c = 0; c < row1.length; c++) {
@@ -78,10 +79,11 @@ async function loadMaster(file) {
     const data = [];
     for (let i = dataStart; i < raw.length; i++) {
       const row = raw[i];
-      const cn = String(row[circuitCol] ?? '').trim();
-      const sn = String(row[serialCol] ?? '').trim();
-      const cmt = commentCol >= 0 ? String(row[commentCol] ?? '').trim() : '';
-      if (cn || sn) data.push({ circuitName: cn, serialNumber: sn, comment: cmt });
+      const cn  = String(row[circuitCol]  ?? '').trim();
+      const sn  = String(row[serialCol]   ?? '').trim();
+      const cmt = commentCol  >= 0 ? String(row[commentCol]  ?? '').trim() : '';
+      const rl  = rackLocCol  >= 0 ? String(row[rackLocCol]  ?? '').trim() : '';
+      if (cn || sn) data.push({ circuitName: cn, serialNumber: sn, comment: cmt, rackLocation: rl });
     }
     return data;
   }
@@ -95,6 +97,7 @@ async function loadMaster(file) {
       if (serialCol === -1 || headerRow[c] === 'SERIAL NUMBER') serialCol = c;
     }
     if (headerRow[c].includes('COMMENT')) commentCol = c;
+    if (headerRow[c].includes('RACK')) rackLocCol = c;
   }
 
   if (circuitCol === -1 || serialCol === -1) {
@@ -104,10 +107,11 @@ async function loadMaster(file) {
   const data = [];
   for (let i = 1; i < raw.length; i++) {
     const row = raw[i];
-    const cn = String(row[circuitCol] ?? '').trim();
-    const sn = String(row[serialCol] ?? '').trim();
-    const cmt = commentCol >= 0 ? String(row[commentCol] ?? '').trim() : '';
-    if (cn || sn) data.push({ circuitName: cn, serialNumber: sn, comment: cmt });
+    const cn  = String(row[circuitCol]  ?? '').trim();
+    const sn  = String(row[serialCol]   ?? '').trim();
+    const cmt = commentCol  >= 0 ? String(row[commentCol]  ?? '').trim() : '';
+    const rl  = rackLocCol  >= 0 ? String(row[rackLocCol]  ?? '').trim() : '';
+    if (cn || sn) data.push({ circuitName: cn, serialNumber: sn, comment: cmt, rackLocation: rl });
   }
   return data;
 }
