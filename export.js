@@ -1,6 +1,7 @@
 // ─── Excel Export ─────────────────────────────────────────────────
 async function exportExcel(results, masterData, allHeaders) {
   const wb = new ExcelJS.Workbook();
+  wb.views = [{ state: 'maximized' }];
   const order = masterSortOrders();
   const sorted = sortByMaster(results, order);
   const sortedFails = sorted.filter(r => r._status === 'FAIL');
