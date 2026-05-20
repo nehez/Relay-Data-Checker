@@ -97,7 +97,7 @@
     }
   }
 
-  // ── Draw signal (wayside: JB → arm → post → head, head face-on) ──
+  // ── Draw signal (wayside: JB → arm → post → head parallel to track) ─
   function drawSignal(s) {
     const pt = trackPoint(s.frac);
     const lunarOn = Math.floor(Date.now() / 545) % 2 === 0;
@@ -110,18 +110,19 @@
     const jbSZ  = 6;   // junction box size
     const armL  = 14;  // arm along x (parallel to track)
     const postH = 5;   // short post going inward (+y)
-    const hD    = 8;   // signal head: short dim along x — attaches to post
-    const hH    = 16;  // signal head: tall dim along y — main body
+    const hW    = 16;  // signal head width along x (parallel to track, long side)
+    const hD    = 8;   // signal head depth along y (short side, connects to post)
     const bR    = 2.0; // bezel radius
 
-    // Arm sits 2 signal-head widths (2×hD) inside the inner rail
+    // Arm sits 2 signal-head depths (2×hD) inside the inner rail
     const yArm = GAP / 2 + 2 * hD;  // 4 + 16 = 20px from track centre
 
     // Centre whole assembly at x = 0
-    const half   = (jbSZ + armL + hD) / 2;
-    const jbLeft = -half;
-    const armX0  = jbLeft + jbSZ;
-    const headCX = armX0 + armL + hD / 2;
+    const half     = (jbSZ + armL + hW) / 2;
+    const jbLeft   = -half;
+    const armX0    = jbLeft + jbSZ;
+    const headLeft = armX0 + armL;
+    const headCX   = headLeft + hW / 2;
 
     ctx.translate(0, yArm);
 
@@ -131,41 +132,41 @@
 
     // 2 — Arm (parallel to track, the "signal pole")
     ctx.strokeStyle = '#3a4a5a'; ctx.lineWidth = 2; ctx.lineCap = 'butt';
-    ctx.beginPath(); ctx.moveTo(armX0, 0); ctx.lineTo(armX0 + armL, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(armX0, 0); ctx.lineTo(headLeft, 0); ctx.stroke();
 
     // 3 — Short post from arm inward to signal head
     ctx.beginPath(); ctx.moveTo(headCX, 0); ctx.lineTo(headCX, postH); ctx.stroke();
 
-    // 4 — Signal head: short side (hD) attached to post, tall side (hH) extends inward
+    // 4 — Signal head: rotated 90° — now hW wide along x (parallel to track), hD tall along y
     ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 0.8;
-    rr(headCX - hD / 2, postH, hD, hH, 2); ctx.fill(); ctx.stroke();
+    rr(headLeft, postH, hW, hD, 2); ctx.fill(); ctx.stroke();
 
-    // Lights along y: lunar at top (postH end, closest to rail), red at bottom
-    const lx  = headCX;
-    const ly1 = postH + bR + 1.5;          // lunar (top)
-    const ly2 = postH + hH / 2;            // mid (unlit)
-    const ly3 = postH + hH - bR - 1.5;    // red (bottom)
+    // Lights along x inside head: lunar at approach end, mid centre, red at departure end
+    const ly  = postH + hD / 2;
+    const lx1 = headLeft + bR + 1.5;       // lunar (approach/left)
+    const lx2 = headCX;                     // mid (unlit)
+    const lx3 = headLeft + hW - bR - 1.5;  // red (departure/right)
 
-    [ly1, ly2, ly3].forEach(ly => {
+    [lx1, lx2, lx3].forEach(lx => {
       ctx.beginPath(); ctx.arc(lx, ly, bR, 0, Math.PI * 2);
       ctx.fillStyle = '#050b12'; ctx.fill();
     });
 
     if (s.state === 'lunar' && lunarOn) {
-      ctx.beginPath(); ctx.arc(lx, ly1, bR * 2.2, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx1, ly, bR * 2.2, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(180,215,255,0.15)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(lx, ly1, bR, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx1, ly, bR, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(220,240,255,0.95)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(lx, ly1, bR * 0.5, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx1, ly, bR * 0.5, 0, Math.PI * 2);
       ctx.fillStyle = '#f4faff'; ctx.fill();
     }
 
     if (s.state === 'red') {
-      ctx.beginPath(); ctx.arc(lx, ly3, bR * 2.8, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx3, ly, bR * 2.8, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,30,30,0.12)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(lx, ly3, bR, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx3, ly, bR, 0, Math.PI * 2);
       ctx.fillStyle = '#ff2020'; ctx.fill();
-      ctx.beginPath(); ctx.arc(lx, ly3, bR * 0.5, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(lx3, ly, bR * 0.5, 0, Math.PI * 2);
       ctx.fillStyle = '#ff8888'; ctx.fill();
     }
 
