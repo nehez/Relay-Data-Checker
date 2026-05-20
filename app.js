@@ -1,4 +1,4 @@
-const VERSION = 'v2.29.1';
+const VERSION = 'v2.30.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -167,6 +167,26 @@ async function loadNew(file) {
   }
 
   return { headers, rows, nomenclatureIdx, serialIdx };
+}
+
+// ─── Comment Enrichment ───────────────────────────────────────────
+function enrichComments(results, master) {
+  const commentKeys = ['Comments', 'Comment', 'COMMENTS', 'comment'];
+  const commentKey = results.length > 0
+    ? commentKeys.find(k => k in results[0])
+    : null;
+  if (!commentKey) return results;
+
+  const rackMap = new Map();
+  master.forEach(m => {
+    if (m.rackLocation) rackMap.set(m.serialNumber.toUpperCase(), m.rackLocation);
+  });
+
+  return results.map(r => {
+    if (String(r[commentKey] ?? '').trim()) return r;
+    const rl = rackMap.get(String(r['Serial Number'] ?? '').trim().toUpperCase()) || '';
+    return rl ? { ...r, [commentKey]: rl } : r;
+  });
 }
 
 // ─── Validation ───────────────────────────────────────────────────
@@ -559,6 +579,7 @@ document.getElementById('run-btn').addEventListener('click', async () => {
 
   try {
     validationResults = runValidation(masterData, newData);
+    validationResults = enrichComments(validationResults, masterData);
     setProgress(80);
     await new Promise(r => setTimeout(r, 50));
 
