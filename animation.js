@@ -97,7 +97,7 @@
     }
   }
 
-  // ── Draw signal (parallel to track, wayside style matching 506/508) ─
+  // ── Draw signal (wayside: JB → arm → post → head, head face-on) ──
   function drawSignal(s) {
     const pt = trackPoint(s.frac);
     const lunarOn = Math.floor(Date.now() / 545) % 2 === 0;
@@ -105,38 +105,46 @@
     ctx.save();
     ctx.translate(pt.x, pt.y);
     ctx.rotate(pt.angle);
-    ctx.translate(0, 10);
-    // +x = direction of travel  +y = inward from inner rail
+    // +x = direction of travel, +y = inward
 
-    const hD   = 14;   // housing depth along track (x)
-    const hW   = 12;   // housing width perpendicular to track (y)
-    const armL = 12;   // arm length along x
-    const jbSZ = 7;    // junction box size
-    const bR   = 2.2;  // bezel radius
+    const jbSZ  = 6;   // junction box size
+    const armL  = 14;  // arm along x (parallel to track)
+    const postH = 5;   // short post going inward (+y)
+    const hD    = 8;   // signal head: short dim along x — attaches to post
+    const hH    = 16;  // signal head: tall dim along y — main body
+    const bR    = 2.0; // bezel radius
 
-    // Head at approach end (-x), junction box at departure end (+x)
-    const half   = (hD + armL + jbSZ) / 2;
-    const houseX = -half;
-    const armX   = houseX + hD;
-    const jbX    = armX + armL;
+    // Arm sits 2 signal-head widths (2×hD) inside the inner rail
+    const yArm = GAP / 2 + 2 * hD;  // 4 + 16 = 20px from track centre
 
-    // Housing (signal head — faces approaching train)
-    ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 0.8;
-    rr(houseX, -hW / 2, hD, hW, 2); ctx.fill(); ctx.stroke();
+    // Centre whole assembly at x = 0
+    const half   = (jbSZ + armL + hD) / 2;
+    const jbLeft = -half;
+    const armX0  = jbLeft + jbSZ;
+    const headCX = armX0 + armL + hD / 2;
 
-    // Arm
-    ctx.strokeStyle = '#3a4a5a'; ctx.lineWidth = 2; ctx.lineCap = 'butt';
-    ctx.beginPath(); ctx.moveTo(armX, 0); ctx.lineTo(jbX, 0); ctx.stroke();
+    ctx.translate(0, yArm);
 
-    // Junction box
+    // 1 — Junction box (approach end, first encountered)
     ctx.fillStyle = '#3a4a5a';
-    rr(jbX, -jbSZ / 2, jbSZ, jbSZ, 1.5); ctx.fill();
+    rr(jbLeft, -jbSZ / 2, jbSZ, jbSZ, 1.5); ctx.fill();
 
-    // Lights stacked in y: lunar toward outer rail (-y = "top"), red toward center (+y = "bottom")
-    const lx  = houseX + hD / 2;
-    const ly1 = -hW / 2 + bR + 1;  // lunar (top)
-    const ly2 = 0;                   // mid (unlit)
-    const ly3 =  hW / 2 - bR - 1;  // red (bottom)
+    // 2 — Arm (parallel to track, the "signal pole")
+    ctx.strokeStyle = '#3a4a5a'; ctx.lineWidth = 2; ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(armX0, 0); ctx.lineTo(armX0 + armL, 0); ctx.stroke();
+
+    // 3 — Short post from arm inward to signal head
+    ctx.beginPath(); ctx.moveTo(headCX, 0); ctx.lineTo(headCX, postH); ctx.stroke();
+
+    // 4 — Signal head: short side (hD) attached to post, tall side (hH) extends inward
+    ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 0.8;
+    rr(headCX - hD / 2, postH, hD, hH, 2); ctx.fill(); ctx.stroke();
+
+    // Lights along y: lunar at top (postH end, closest to rail), red at bottom
+    const lx  = headCX;
+    const ly1 = postH + bR + 1.5;          // lunar (top)
+    const ly2 = postH + hH / 2;            // mid (unlit)
+    const ly3 = postH + hH - bR - 1.5;    // red (bottom)
 
     [ly1, ly2, ly3].forEach(ly => {
       ctx.beginPath(); ctx.arc(lx, ly, bR, 0, Math.PI * 2);
