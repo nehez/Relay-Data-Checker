@@ -13,10 +13,10 @@
   const STOP_GAP   = 55;
 
   const signals = [
-    { frac: 0.10, state: 'lunar', timer: rnd() },
-    { frac: 0.35, state: 'red',   timer: rnd() + 70 },
-    { frac: 0.60, state: 'lunar', timer: rnd() + 140 },
-    { frac: 0.85, state: 'red',   timer: rnd() + 30 },
+    { frac: 0.035, state: 'lunar', timer: rnd() },
+    { frac: 0.35,  state: 'red',   timer: rnd() + 70 },
+    { frac: 0.52,  state: 'lunar', timer: rnd() + 140 },
+    { frac: 0.85,  state: 'red',   timer: rnd() + 30 },
   ];
 
   function rnd() { return 220 + Math.random() * 430; }
@@ -97,7 +97,7 @@
     }
   }
 
-  // ── Draw signal (along-track, inside inner rail, 2× size) ────────
+  // ── Draw signal (upright style matching header SVG) ───────────────
   function drawSignal(s) {
     const pt = trackPoint(s.frac);
     const lunarOn = Math.floor(Date.now() / 545) % 2 === 0;
@@ -107,38 +107,36 @@
     ctx.rotate(pt.angle);
     // +x = direction of travel, +y = inward toward center
 
-    // 2 signal-head widths inside the inner rail
-    ctx.translate(0, 50);
+    const bW = 14;   // base width
+    const bH = 4;    // base height
+    const pW = 3;    // pole width
+    const pH = 22;   // pole height
+    const hW = 18;   // housing width
+    const hH = 38;   // housing height (3 stacked lights)
+    const bR = 4.4;  // bezel radius
 
-    const jbSZ  = 10;  // junction box size (square)
-    const poleH = 20;  // pole length along track
-    const hD    = 14;  // housing depth along track
-    const hH    = 34;  // housing height inward (fits 3 stacked lights)
-    const bR    = 4.4; // bezel radius
+    // Base sits just inside the inner rail; assembly extends inward (+y)
+    const y0 = GAP / 2 + 2;   // base start
+    const y1 = y0 + bH;        // pole start
+    const y2 = y1 + pH;        // housing start
+    const y3 = y2 + hH;        // housing end
 
-    // Center assembly on x=0; junction box toward approaching train (-x)
-    const half   = (jbSZ + poleH + hD) / 2;
-    const jbX    = -half;
-    const poleX  = jbX + jbSZ;
-    const houseX = poleX + poleH;
-
-    // Junction box (approaching-train end)
+    // Base
     ctx.fillStyle = '#3a4a5a';
-    rr(jbX, -jbSZ / 2, jbSZ, jbSZ, 2); ctx.fill();
+    rr(-bW / 2, y0, bW, bH, 1.5); ctx.fill();
 
     // Pole
-    ctx.strokeStyle = '#3a4a5a'; ctx.lineWidth = 3; ctx.lineCap = 'butt';
-    ctx.beginPath(); ctx.moveTo(poleX, 0); ctx.lineTo(houseX, 0); ctx.stroke();
+    ctx.fillRect(-pW / 2, y1, pW, pH);
 
-    // Housing (departure end)
-    ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 1;
-    rr(houseX, -hH / 2, hD, hH, 3); ctx.fill(); ctx.stroke();
+    // Housing
+    ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 0.8;
+    rr(-hW / 2, y2, hW, hH, 2); ctx.fill(); ctx.stroke();
 
-    // Lights stacked along y: lunar = top (toward track = -y), red = bottom (+y)
-    const lx  = houseX + hD / 2;
-    const ly1 = -hH / 2 + bR + 3;  // lunar (top)
-    const ly2 = 0;                   // mid (unlit)
-    const ly3 =  hH / 2 - bR - 3;  // red (bottom)
+    // Lights: lunar top, unlit mid, red bottom
+    const lx  = 0;
+    const ly1 = y2 + bR + 3;   // lunar
+    const ly2 = y2 + hH / 2;   // mid (unlit)
+    const ly3 = y3 - bR - 3;   // red
 
     [ly1, ly2, ly3].forEach(ly => {
       ctx.beginPath(); ctx.arc(lx, ly, bR, 0, Math.PI * 2);
