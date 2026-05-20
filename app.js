@@ -1,4 +1,4 @@
-const VERSION = 'v2.30.0';
+const VERSION = 'v2.31.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -645,6 +645,10 @@ document.getElementById('dl-excel').addEventListener('click', async () => {
 
 document.getElementById('dl-csv').addEventListener('click', () => {
   if (validationResults) exportCSV(validationResults, masterData, newData.headers);
+});
+
+document.getElementById('dl-patched').addEventListener('click', async () => {
+  if (validationResults) await exportPatchedFile(validationResults, newData.headers);
 });
 
 document.getElementById('reset-btn').addEventListener('click', () => {

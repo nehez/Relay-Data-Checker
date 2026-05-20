@@ -229,3 +229,45 @@ function exportCSV(results, masterData, allHeaders) {
   a.download = `relay-data-checker_report_${new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-')}.csv`;
   a.click();
 }
+
+// ─── Patched New File Export ───────────────────────────────────────
+async function exportPatchedFile(results, allHeaders) {
+  const wb = new ExcelJS.Workbook();
+  wb.views = [{ state: 'maximized' }];
+  const ws = wb.addWorksheet('Results');
+
+  ws.addRow(allHeaders).font = { bold: true };
+
+  const order = masterSortOrders();
+  const sorted = sortByMaster(results, order);
+  sorted.forEach(r => ws.addRow(allHeaders.map(h => r[h] ?? '')));
+
+  // Auto-fit all columns
+  const widths = {};
+  ws.eachRow(row => {
+    row.eachCell({ includeEmpty: false }, (cell, colIdx) => {
+      const len = cell.value != null ? String(cell.value).length : 0;
+      widths[colIdx] = Math.max(widths[colIdx] || 0, len);
+    });
+  });
+  Object.entries(widths).forEach(([colIdx, len]) => {
+    ws.getColumn(Number(colIdx)).width = Math.min(len + 3, 60);
+  });
+
+  ws.eachRow(row => {
+    row.eachCell({ includeEmpty: true }, cell => {
+      cell.alignment = { horizontal: 'left' };
+    });
+  });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `new-results-updated_${new Date().toISOString().slice(0,19).replace('T','_').replace(/:/g,'-')}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
