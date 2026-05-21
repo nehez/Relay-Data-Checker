@@ -13,10 +13,10 @@
   const STOP_GAP   = 55;
 
   const signals = [
-    { frac: 0.035, state: 'lunar', timer: rnd() },
-    { frac: 0.35,  state: 'red',   timer: rnd() + 70 },
-    { frac: 0.52,  state: 'lunar', timer: rnd() + 140 },
-    { frac: 0.85,  state: 'red',   timer: rnd() + 30 },
+    { frac: 0.035, state: 'lunar', timer: rnd(),       rot:  Math.PI / 2 },
+    { frac: 0.35,  state: 'red',   timer: rnd() + 70,  rot:  Math.PI / 2 },
+    { frac: 0.52,  state: 'lunar', timer: rnd() + 140, rot: -Math.PI / 2 },
+    { frac: 0.85,  state: 'red',   timer: rnd() + 30,  rot: -Math.PI / 2 },
   ];
 
   function rnd() { return 220 + Math.random() * 430; }
@@ -97,7 +97,7 @@
     }
   }
 
-  // ── Draw signal (portrait rectangle head, no JB/pole, inner side) ───
+  // ── Draw signal (portrait head, rotated 90° CW or CCW per signal) ───
   function drawSignal(s) {
     const pt = trackPoint(s.frac);
     const lunarOn = Math.floor(Date.now() / 545) % 2 === 0;
@@ -107,23 +107,25 @@
     ctx.rotate(pt.angle);
     // +x = direction of travel, +y = inward toward canvas centre
 
-    const hW = 12;   // narrow along track
-    const hD = 28;   // tall perpendicular to track (portrait, like header signal)
+    const hW = 12;   // portrait width (narrow)
+    const hD = 28;   // portrait height (tall)
     const bR = 4.0;
 
-    // Place on inner side, clear of train (body TW/2=11, wheels reach ~21.5; 8px gap)
-    const yTop    = 30;
-    const yBot    = yTop + hD;   // 58
-    const lx      = 0;
-    const lyRed   = yTop + bR + 2;   // 36 — red near track (bottom aspect)
-    const lyMid   = yTop + hD / 2;   // 44
-    const lyLunar = yBot - bR - 2;   // 52 — lunar outer end (top aspect)
+    // Translate to signal centre (inner side, clear of train wheels ~21.5px)
+    ctx.translate(0, 44);
+    // Apply per-signal rotation: top pair +90° CW, bottom pair −90° CCW
+    ctx.rotate(s.rot);
 
-    // Head
+    // Head centred at origin — portrait; rotation repositions it on canvas
     ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 1;
-    rr(-hW / 2, yTop, hW, hD, 3); ctx.fill(); ctx.stroke();
+    rr(-hW / 2, -hD / 2, hW, hD, 3); ctx.fill(); ctx.stroke();
 
-    // Bezels
+    // Lights along y in portrait frame: red toward track (−y), lunar away (+y)
+    const lx      = 0;
+    const lyRed   = -(hD / 2 - bR - 2);  // −8
+    const lyMid   =  0;
+    const lyLunar =   hD / 2 - bR - 2;   //  +8
+
     [lyRed, lyMid, lyLunar].forEach(ly => {
       ctx.beginPath(); ctx.arc(lx, ly, bR, 0, Math.PI * 2);
       ctx.fillStyle = '#050b12'; ctx.fill();
