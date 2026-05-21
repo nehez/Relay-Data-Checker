@@ -431,6 +431,17 @@ td.highlight-ok {
   color: var(--success);
 }
 
+th.row-num-col, td.row-num {
+  text-align: right;
+  padding: 6px 10px;
+  min-width: 36px;
+  color: var(--text-dim);
+  opacity: 0.45;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  font-size: 11px;
+}
+
 .badge {
   display: inline-block;
   padding: 2px 8px;

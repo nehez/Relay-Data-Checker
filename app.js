@@ -1,4 +1,4 @@
-const VERSION = 'v2.40.0';
+const VERSION = 'v2.41.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]
@@ -261,7 +261,7 @@ function renderStats(results) {
   `;
 }
 
-function renderTable(containerId, rows, allHeaders, showIssueCol, description) {
+function renderTable(containerId, rows, allHeaders, showIssueCol, description, showRowNums = false) {
   const container = document.getElementById(containerId);
   const descHtml = description ? `<p class="tab-info">${description}</p>` : '';
   if (!rows.length) {
@@ -275,10 +275,12 @@ function renderTable(containerId, rows, allHeaders, showIssueCol, description) {
 
   const labelMap = { _status: 'Status', _issue: 'Issue' };
 
-  const thead = displayHeaders.map(h => `<th>${labelMap[h] || h}</th>`).join('');
+  const numTh = showRowNums ? '<th class="row-num-col">#</th>' : '';
+  const thead = numTh + displayHeaders.map(h => `<th>${labelMap[h] || h}</th>`).join('');
 
-  const tbody = rows.map(row => {
+  const tbody = rows.map((row, idx) => {
     const isFail = row._status === 'FAIL';
+    const numTd = showRowNums ? `<td class="row-num">${idx + 1}</td>` : '';
     const cells = displayHeaders.map(h => {
       const val = row[h] ?? '';
       if (h === '_status') {
@@ -290,10 +292,26 @@ function renderTable(containerId, rows, allHeaders, showIssueCol, description) {
       }
       return `<td>${val}</td>`;
     }).join('');
-    return `<tr class="${isFail ? 'mismatch-row' : 'pass-row'}">${cells}</tr>`;
+    return `<tr class="${isFail ? 'mismatch-row' : 'pass-row'}">${numTd}${cells}</tr>`;
   }).join('');
 
   container.innerHTML = descHtml + `<div class="table-wrap"><table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>`;
+}
+
+function renderTestResultFailures() {
+  const trName = (newData.headers || []).find(h => typeof h === 'string' && h.toUpperCase().includes('TEST RESULT'));
+  const desc = 'Rows where the Test Result column contains FAIL — independently of whether the circuit/serial matched the master.';
+  if (!trName) {
+    const container = document.getElementById('tab-trf');
+    container.innerHTML = `<p class="tab-info">${desc}</p><div class="empty-state">No "Test Result" column found in the new file.</div>`;
+    return;
+  }
+  const order = masterSortOrders();
+  const trFails = sortByMaster(
+    validationResults.filter(r => String(r[trName] ?? '').toUpperCase().trim().includes('FAIL')),
+    order
+  );
+  renderTable('tab-trf', trFails, newData.headers, true, desc, true);
 }
 
 function renderNotInMaster(master, newResults) {
@@ -307,17 +325,20 @@ function renderNotInMaster(master, newResults) {
     return;
   }
 
-  const rows = missing.map(m => `
+  const rows = missing.map((m, i) => `
     <tr>
+      <td class="row-num">${i + 1}</td>
       <td class="highlight-bad">${m.circuitName}</td>
       <td class="highlight-bad">${m.serialNumber}</td>
+      <td>${m.rackLocation || ''}</td>
+      <td>${m.comment || ''}</td>
     </tr>
   `).join('');
 
   container.innerHTML = descHtml + `
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Circuit Name (Master)</th><th>Serial Number (Master)</th></tr></thead>
+        <thead><tr><th class="row-num-col">#</th><th>Circuit Name (Master)</th><th>Serial Number (Master)</th><th>Rack Location</th><th>Comments</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -415,11 +436,12 @@ function renderUniqueFailures() {
   const unique = sortByMaster([...seen.values()], order);
   const totalCount = unique.reduce((sum, r) => sum + r.count, 0);
 
-  const thead = '<tr><th>Count</th><th>Status</th><th>Issue</th><th>Nomenclature</th><th>Serial Number</th><th>Report Number</th></tr>';
-  const tbody = unique.map(r => {
+  const thead = '<tr><th class="row-num-col">#</th><th>Count</th><th>Status</th><th>Issue</th><th>Nomenclature</th><th>Serial Number</th><th>Report Number</th></tr>';
+  const tbody = unique.map((r, idx) => {
     const reportNum = r['Report Number'] || r['Report No'] || r['Report#'] || r['Report No.'] || '';
     return `
     <tr class="mismatch-row">
+      <td class="row-num">${idx + 1}</td>
       <td><span class="badge badge-fail">${r.count}</span></td>
       <td><span class="badge badge-fail">FAIL</span></td>
       <td class="highlight-bad">${r._issue}</td>
@@ -429,7 +451,7 @@ function renderUniqueFailures() {
     </tr>`;
   }).join('');
 
-  const tfoot = `<tfoot><tr><td><strong>${totalCount}</strong></td><td colspan="5">total failure instances — matches the Mismatches count above</td></tr></tfoot>`;
+  const tfoot = `<tfoot><tr><td></td><td><strong>${totalCount}</strong></td><td colspan="5">total failure instances — matches the Mismatches count above</td></tr></tfoot>`;
   container.innerHTML = desc + `<div class="table-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody>${tfoot}</table></div>`;
 }
 
@@ -475,6 +497,8 @@ function renderForTab(tabId) {
   } else if (tabId === 'exceptions') {
     const fails = sortByMaster(validationResults.filter(r => r._status === 'FAIL'), order);
     renderTable('tab-exceptions', fails, newData.headers, true, 'Rows from the new file where the circuit name, serial number, or the combination was not found in the master. Each row shows the specific reason it failed.');
+  } else if (tabId === 'trf') {
+    renderTestResultFailures();
   } else if (tabId === 'notinmaster') {
     renderNotInMaster(masterData, validationResults);
   } else if (tabId === 'fulldata') {
@@ -595,6 +619,7 @@ document.getElementById('run-btn').addEventListener('click', async () => {
     exceptionsPanel.classList.add('active');
     exceptionsPanel.innerHTML = '<div class="loading-state"><span class="loading-dot"></span>Rendering rows\u2026</div>';
     document.getElementById('tab-uniqueerrors').innerHTML = '<div class="empty-state">Click tab to load.</div>';
+    document.getElementById('tab-trf').innerHTML = '<div class="empty-state">Click tab to load.</div>';
     document.getElementById('tab-notinmaster').innerHTML = '<div class="empty-state">Click tab to load.</div>';
     document.getElementById('tab-fulldata').innerHTML = '<div class="empty-state">Click tab to load.</div>';
 
@@ -669,7 +694,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   document.getElementById('export-row').style.display = 'none';
   document.getElementById('progress-bar').classList.remove('visible');
   showError('');
-  ['exceptions','uniqueerrors','notinmaster','fulldata'].forEach(id => {
+  ['exceptions','uniqueerrors','trf','notinmaster','fulldata'].forEach(id => {
     document.getElementById(`tab-${id}`).innerHTML = '';
   });
   document.getElementById('stats-row').innerHTML = '';
