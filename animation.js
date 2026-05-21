@@ -13,10 +13,10 @@
   const STOP_GAP   = 55;
 
   const signals = [
-    { frac: 0.035, state: 'lunar', timer: rnd(),       rot:  Math.PI / 2 },
-    { frac: 0.35,  state: 'red',   timer: rnd() + 70,  rot:  Math.PI / 2 },
-    { frac: 0.52,  state: 'lunar', timer: rnd() + 140, rot: -Math.PI / 2 },
-    { frac: 0.85,  state: 'red',   timer: rnd() + 30,  rot: -Math.PI / 2 },
+    { frac: 0.035, state: 'red',   timer: rnd(),       rot:  Math.PI / 2, poleDirY:  1 },
+    { frac: 0.35,  state: 'lunar', timer: rnd() + 70,  rot:  Math.PI / 2, poleDirY:  1 },
+    { frac: 0.52,  state: 'lunar', timer: rnd() + 140, rot: -Math.PI / 2, poleDirY: -1 },
+    { frac: 0.85,  state: 'red',   timer: rnd() + 30,  rot: -Math.PI / 2, poleDirY: -1 },
   ];
 
   function rnd() { return 220 + Math.random() * 430; }
@@ -97,7 +97,7 @@
     }
   }
 
-  // ── Draw signal (portrait head, rotated 90° CW or CCW per signal) ───
+  // ── Draw signal (portrait head + pole/base, rotated per signal) ────
   function drawSignal(s) {
     const pt = trackPoint(s.frac);
     const lunarOn = Math.floor(Date.now() / 545) % 2 === 0;
@@ -107,16 +107,22 @@
     ctx.rotate(pt.angle);
     // +x = direction of travel, +y = inward toward canvas centre
 
-    const hW = 12;   // portrait width (narrow)
-    const hD = 28;   // portrait height (tall)
-    const bR = 4.0;
+    const hW = 12, hD = 28, bR = 4.0;
+    const poleW = 3, poleH = 18, baseW = 10, baseH = 4;
+    const pD = s.poleDirY;   // +1 or -1: which portrait y-end the pole attaches to
 
     // Translate to signal centre (inner side, clear of train wheels ~21.5px)
     ctx.translate(0, 44);
-    // Apply per-signal rotation: top pair +90° CW, bottom pair −90° CCW
     ctx.rotate(s.rot);
 
-    // Head centred at origin — portrait; rotation repositions it on canvas
+    // Pole and base drawn first so head sits on top
+    ctx.fillStyle = '#3a4a5a';
+    const poleY = pD > 0 ? hD / 2 : -hD / 2 - poleH;
+    rr(-poleW / 2, poleY, poleW, poleH, 1); ctx.fill();
+    const baseY = pD > 0 ? hD / 2 + poleH : -hD / 2 - poleH - baseH;
+    rr(-baseW / 2, baseY, baseW, baseH, 2); ctx.fill();
+
+    // Head centred at origin
     ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 1;
     rr(-hW / 2, -hD / 2, hW, hD, 3); ctx.fill(); ctx.stroke();
 
