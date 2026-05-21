@@ -126,11 +126,11 @@
     ctx.fillStyle = '#1e2d3d'; ctx.strokeStyle = '#253d5a'; ctx.lineWidth = 1;
     rr(-hW / 2, -hD / 2, hW, hD, 3); ctx.fill(); ctx.stroke();
 
-    // Lights along y in portrait frame: red toward track (−y), lunar away (+y)
+    // Lights: lunar always at top (away from pole), red at bottom (pole side)
     const lx      = 0;
-    const lyRed   = -(hD / 2 - bR - 2);  // −8
+    const lyLunar = -pD * (hD / 2 - bR - 2);
     const lyMid   =  0;
-    const lyLunar =   hD / 2 - bR - 2;   //  +8
+    const lyRed   =  pD * (hD / 2 - bR - 2);
 
     [lyRed, lyMid, lyLunar].forEach(ly => {
       ctx.beginPath(); ctx.arc(lx, ly, bR, 0, Math.PI * 2);
