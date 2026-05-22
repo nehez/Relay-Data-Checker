@@ -13,6 +13,10 @@ async function exportExcel(results, masterData, allHeaders) {
     typeof h === 'string' && h.toUpperCase().includes('TEST RESULT')
   ) + 1;
 
+  const locationCol = allHeaders.find(h => typeof h === 'string' && h.toUpperCase() === 'LOCATION');
+  const locationVal = locationCol && results.length > 0 ? String(results[0][locationCol] ?? '').trim() : '';
+  const locPrefix   = locationVal ? locationVal + ' ' : '';
+
   const FILL_RED   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDDD' } };
   const FILL_GREEN = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'DDFFDD' } };
   const FONT_RED   = { bold: true, color: { argb: 'CC0000' } };
@@ -103,7 +107,7 @@ async function exportExcel(results, masterData, allHeaders) {
     autoFitColumns(wsUE);
     alignLeft(wsUE);
     wsUE.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, showGridLines: true, showRowColHeaders: true };
-    wsUE.headerFooter = { oddHeader: '&C&BUnique Failures', oddFooter: '&CPage &P of &N' };
+    wsUE.headerFooter = { oddHeader: `&C&B${locPrefix}Unique Failures`, oddFooter: '&CPage &P of &N' };
   }
 
   if (trCol > 0) {
@@ -131,7 +135,7 @@ async function exportExcel(results, masterData, allHeaders) {
         showGridLines: true,
         showRowColHeaders: true,
       };
-      wsTRF.headerFooter = { oddHeader: '&C&BTest Result Failures', oddFooter: '&CPage &P of &N' };
+      wsTRF.headerFooter = { oddHeader: `&C&B${locPrefix}Test Result Failures`, oddFooter: '&CPage &P of &N' };
     }
   }
 
@@ -144,7 +148,7 @@ async function exportExcel(results, masterData, allHeaders) {
     autoFitColumns(wsMissing);
     alignLeft(wsMissing);
     wsMissing.pageSetup = { orientation: 'portrait', showGridLines: true, showRowColHeaders: true };
-    wsMissing.headerFooter = { oddHeader: '&C&BMissing From New File', oddFooter: '&CPage &P of &N' };
+    wsMissing.headerFooter = { oddHeader: `&C&B${locPrefix}Missing From New File`, oddFooter: '&CPage &P of &N' };
   }
 
   const total = results.length;
