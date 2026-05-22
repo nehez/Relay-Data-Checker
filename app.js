@@ -1,4 +1,4 @@
-const VERSION = 'v2.41.0';
+const VERSION = 'v2.42.0';
 
 // ─── State ───────────────────────────────────────────────────────
 let masterData = null;   // { circuitName, serialNumber }[]

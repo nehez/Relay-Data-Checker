@@ -102,7 +102,7 @@ async function exportExcel(results, masterData, allHeaders) {
     totalRow.font = { bold: true };
     autoFitColumns(wsUE);
     alignLeft(wsUE);
-    wsUE.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, showGridLines: true };
+    wsUE.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, showGridLines: true, showRowColHeaders: true };
     wsUE.headerFooter = { oddHeader: '&C&BUnique Failures', oddFooter: '&CPage &P of &N' };
   }
 
@@ -129,6 +129,7 @@ async function exportExcel(results, masterData, allHeaders) {
         fitToWidth: 1,
         fitToHeight: 0,
         showGridLines: true,
+        showRowColHeaders: true,
       };
       wsTRF.headerFooter = { oddHeader: '&C&BTest Result Failures', oddFooter: '&CPage &P of &N' };
     }
@@ -142,7 +143,7 @@ async function exportExcel(results, masterData, allHeaders) {
     missing.forEach(m => wsMissing.addRow([m.circuitName, m.serialNumber, m.rackLocation || '', m.comment || '']));
     autoFitColumns(wsMissing);
     alignLeft(wsMissing);
-    wsMissing.pageSetup = { orientation: 'portrait', showGridLines: true };
+    wsMissing.pageSetup = { orientation: 'portrait', showGridLines: true, showRowColHeaders: true };
     wsMissing.headerFooter = { oddHeader: '&C&BMissing From New File', oddFooter: '&CPage &P of &N' };
   }
 
